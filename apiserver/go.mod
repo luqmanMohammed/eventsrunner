@@ -1,4 +1,4 @@
-module github.com/luqmanMohammed/eventsrunner/api
+module github.com/luqmanMohammed/eventsrunner/apiserver
 
 go 1.18
 
