@@ -18,6 +18,10 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: EREvent depicts an event that is processed/to be processed by
+          the events runner. EREvents will be requests recieved by the eventsrunner-api,
+          which will be stored as CRDs for persistance. Stored EREvents will be processed
+          by the eventsrunner-controller
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -32,21 +36,41 @@ spec:
           metadata:
             type: object
           spec:
+            description: EREventSpec will be used to store the exact request recieved
+              by the eventsrunner-api
             properties:
+              eventData:
+                items:
+                  additionalProperties:
+                    type: string
+                  type: object
+                type: array
               eventType:
+                description: EREventType define the type of the event
+                type: string
+              resourceID:
+                type: string
+              ruleID:
                 type: string
             required:
             - eventType
+            - resourceID
+            - ruleID
             type: object
           status:
+            description: EREventStatus will be used to store the current status of
+              the event
             properties:
+              retries:
+                type: integer
               status:
+                description: EREventState Depicts the current state of the event
                 type: string
             required:
             - status
             type: object
         required:
-        - status
+        - spec
         type: object
     served: true
     storage: true
