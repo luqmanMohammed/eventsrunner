@@ -21,7 +21,7 @@ THE SOFTWARE.
 */
 package main
 
-import "github.com/luqmanMohammed/eventsrunner/api/cmd"
+import "github.com/luqmanMohammed/eventsrunner/apiserver/cmd"
 
 func main() {
 	cmd.Execute()
