@@ -3,6 +3,6 @@ go 1.18
 use (
 	./apiserver
 	./controller
+	./crd
 	./ereventcrd
-	./runnerapi
 )
