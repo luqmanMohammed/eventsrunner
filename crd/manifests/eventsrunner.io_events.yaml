@@ -1,0 +1,80 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: events.eventsrunner.io
+spec:
+  group: eventsrunner.io
+  names:
+    kind: Event
+    listKind: EventList
+    plural: events
+    singular: event
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Event depicts an event that is processed/to be processed by the
+          events runner. EREvents will be requests recieved by the eventsrunner-api,
+          which will be stored as CRDs for persistance. Stored EREvents will be processed
+          by the eventsrunner-controller
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: EventSpec will be used to store the exact request recieved
+              by the eventsrunner-api
+            properties:
+              eventData:
+                items:
+                  type: string
+                type: array
+              eventType:
+                description: EventType define the type of the event
+                type: string
+              resourceID:
+                type: string
+              ruleID:
+                type: string
+            required:
+            - eventType
+            - resourceID
+            - ruleID
+            type: object
+          status:
+            description: EventStatus will be used to store the current status of the
+              event
+            properties:
+              retries:
+                type: integer
+              status:
+                description: EventState Depicts the current state of the event
+                type: string
+            required:
+            - status
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
