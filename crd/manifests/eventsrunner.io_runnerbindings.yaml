@@ -6589,8 +6589,6 @@ spec:
                   - name
                   type: object
                 type: array
-            required:
-            - containers
             type: object
           rules:
             items:
