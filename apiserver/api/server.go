@@ -13,10 +13,12 @@ import (
 
 	middleware "github.com/auth0/go-jwt-middleware/v2"
 	"github.com/auth0/go-jwt-middleware/v2/validator"
-	erv1alpha1 "github.com/luqmanMohammed/eventsrunner/crd/pkg/apis/eventsrunner.io/v1alpha1"
-	erv1alpha1Client "github.com/luqmanMohammed/eventsrunner/crd/pkg/client/clientset/versioned/typed/eventsrunner.io/v1alpha1"
+	erAPI "github.com/luqmanMohammed/eventsrunner/crd/pkg/apis/eventsrunner.io/v1alpha1"
+	erClient "github.com/luqmanMohammed/eventsrunner/crd/pkg/client/clientset/versioned/typed/eventsrunner.io/v1alpha1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 )
 
 // EventsRunnerAPI serves eventsrunner REST API via a configurable port.
@@ -25,7 +27,7 @@ import (
 type EventsRunnerAPI struct {
 	server             *http.Server
 	healthzServer      *http.Server
-	eventsRunnerClient *erv1alpha1Client.EventsrunnerV1alpha1Client
+	eventsRunnerClient *erClient.EventsrunnerV1alpha1Client
 	namespace          string
 }
 
@@ -152,7 +154,7 @@ func NewEventsRunnerAPI(kubeConfig *rest.Config, serverOpts ServerOpts) (*Events
 		server.TLSConfig = tlsConfig
 	}
 
-	eventsRunnerClient, err := erv1alpha1Client.NewForConfig(kubeConfig)
+	eventsRunnerClient, err := erClient.NewForConfig(kubeConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -185,63 +187,143 @@ func NewEventsRunnerAPI(kubeConfig *rest.Config, serverOpts ServerOpts) (*Events
 	return eventsRunnerAPI, nil
 }
 
-// Start starts the eventsrunner-api server.
-func (erapi *EventsRunnerAPI) Start() error {
+// Start initializes the required components and starts both api and
+// api-healthz servers.
+// In case of any server start errors, function will panic.
+func (erapi *EventsRunnerAPI) Start() {
+	klog.V(1).Infof("Starting eventsrunner-api server on %s", erapi.server.Addr)
+	klog.V(1).Infof("Starting eventsrunner-api healthz server on %s", erapi.healthzServer.Addr)
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	startServer := func(wg *sync.WaitGroup, server *http.Server) {
 		defer wg.Done()
 		if err := server.ListenAndServe(); err != nil {
 			if err != http.ErrServerClosed {
-
+				klog.V(1).Info("Server successfully stopped")
 			}
+			klog.Fatalf("EventsRunnerAPI: ListenAndServe() failed: %v", err)
 		}
 	}
 	go startServer(&wg, erapi.server)
 	go startServer(&wg, erapi.healthzServer)
 	wg.Wait()
-	return nil
+}
+
+// healthzResponse is the response body for the /healthz endpoint.
+var healthzResponse map[string]string = map[string]string{
+	"status": "ok",
+}
+
+// healthzHandler handles /healthz requests.
+// It returns a 200 OK response with the status "ok" in the body.
+func healthzHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(healthzResponse); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 // TODO: Add methods to stop the server gracefully
 // TODO: Add method to listen for signals and gracefully stop the server
 
-// TODO: Add doc
-type eventRequestBody struct {
-	EventType  erv1alpha1.EventType     `json:"eventType"`
+// validationError is returned when the request is invalid.
+// validationError can be caused by missing required fields or invalid values.
+type validationError struct {
+	Msg string
+}
+
+// Error returns a string representation of the error.
+// Implements the error interface.
+func (err validationError) Error() string {
+	return fmt.Sprintf("validation error: %s", err.Msg)
+}
+
+// eventPostRequestBody models the request body for the /api/v1/events endpoint.
+// Used to parse and validate the request body.
+type eventPostRequestBody struct {
+	EventType  erAPI.EventType          `json:"eventType"`
 	ResourceID string                   `json:"resourceID"`
 	RuleID     string                   `json:"ruleID"`
 	EventData  []map[string]interface{} `json:"eventData"`
 }
 
-// TODO: Respons with { status: ok }
-func healthzHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
+// validate validates the eventPostRequestBody to make
+// sure required fields are present.
+// Confirms following fields are present:
+// - eventType
+// - resourceID
+// - ruleID
+// Confirms following fields are valid:
+// - eventType (added, updated, deleted)
+func (eprb eventPostRequestBody) validate() error {
+	if eprb.EventType == "" {
+		return validationError{Msg: "eventType is required"}
+	}
+	if eprb.ResourceID == "" {
+		return validationError{Msg: "resourceID is required"}
+	}
+	if eprb.RuleID == "" {
+		return validationError{Msg: "ruleID is required"}
+	}
+	if eprb.EventType != erAPI.ADDED && eprb.EventType != erAPI.UPDATED && eprb.EventType != erAPI.DELETED {
+		return validationError{Msg: "eventType must be one of ADDED, UPDATED, or DELETED"}
+	}
+	return nil
+}
+
+// eventPostResponseBody models the response body for the /api/v1/events endpoint.
+type eventPostResponseBody struct {
+	Error        string `json:"error,omitempty"`
+	Message      string `json:"message,omitempty"`
+	ResourceName string `json:"resourceName,omitempty"`
+}
+
+// handleEventPostRequest helps to handle response to the POST requests to the 
+// /api/v1/events endpoint. 
+func handleEventPostResponse(w http.ResponseWriter, responseBody eventPostResponseBody, responseCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(responseCode)
+	if err := json.NewEncoder(w).Encode(responseBody); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 // TODO: Add tests
-// TODO: What should happen when kube-api throttles the request?
 // TODO: Benchmark performance
 func (erapi *EventsRunnerAPI) eventPostHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		handleEventPostResponse(w, eventPostResponseBody{
+			Error: "Method not allowed",
+		}, http.StatusMethodNotAllowed)
 		return
 	}
-	var eventRequestBody eventRequestBody
+	var eventRequestBody eventPostRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&eventRequestBody); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		handleEventPostResponse(w, eventPostResponseBody{
+			Error: err.Error(),
+		}, http.StatusBadRequest)
+	}
+	if err := eventRequestBody.validate(); err != nil {
+		handleEventPostResponse(w, eventPostResponseBody{
+			Error: err.Error(),
+		}, http.StatusBadRequest)
 		return
 	}
 	eventData := make([]string, len(eventRequestBody.EventData))
 	for i, event := range eventRequestBody.EventData {
 		buffer := bytes.NewBuffer(nil)
 		if err := json.NewEncoder(buffer).Encode(event); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			handleEventPostResponse(w, eventPostResponseBody{
+				Error: err.Error(),
+			}, http.StatusBadRequest)
 			return
 		}
 		eventData[i] = buffer.String()
 	}
-	event := &erv1alpha1.Event{
+	eventObj := &erAPI.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: eventRequestBody.ResourceID + "-",
 			Namespace:    erapi.namespace,
@@ -249,16 +331,28 @@ func (erapi *EventsRunnerAPI) eventPostHandler(w http.ResponseWriter, r *http.Re
 				"er.io/rule-id": eventRequestBody.RuleID,
 			},
 		},
-		Spec: erv1alpha1.EventSpec{
-			EventType:  eventRequestBody.EventType,
+		Spec: erAPI.EventSpec{
 			ResourceID: eventRequestBody.ResourceID,
+			RuleID:     eventRequestBody.RuleID,
+			EventType:  eventRequestBody.EventType,
 			EventData:  eventData,
 		},
 	}
-	if _, err := erapi.eventsRunnerClient.Events(erapi.namespace).Create(context.TODO(), event, metav1.CreateOptions{}); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	event, err := erapi.eventsRunnerClient.Events(erapi.namespace).Create(context.TODO(), eventObj, metav1.CreateOptions{})
+	if err != nil {
+		if k8serrors.IsTooManyRequests(err) {
+			handleEventPostResponse(w, eventPostResponseBody{
+				Error: "kube-api throttled the request",
+			}, http.StatusTooManyRequests)
+			return
+		}
+		handleEventPostResponse(w, eventPostResponseBody{
+			Error: err.Error(),
+		}, http.StatusInternalServerError)
 		return
 	}
-	// TODO: Write meaningfull response body
-	w.WriteHeader(http.StatusOK)
+	handleEventPostResponse(w, eventPostResponseBody{
+		ResourceName: event.Name,
+		Message:      "Event created successfully",
+	}, http.StatusOK)
 }
