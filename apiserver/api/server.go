@@ -1,16 +1,21 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync"
 
 	middleware "github.com/auth0/go-jwt-middleware/v2"
 	"github.com/auth0/go-jwt-middleware/v2/validator"
+	erv1alpha1 "github.com/luqmanMohammed/eventsrunner/crd/pkg/apis/eventsrunner.io/v1alpha1"
 	erv1alpha1Client "github.com/luqmanMohammed/eventsrunner/crd/pkg/client/clientset/versioned/typed/eventsrunner.io/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 )
 
@@ -48,9 +53,9 @@ func (e MissingRequiredOptionError) Error() string {
 // ServerOpts are options for creating a new eventsrunner-api server.
 type ServerOpts struct {
 	// Addr is the address to listen on.
-	Addr        string `default:"0.0.0.0"`
-	Port        int    `default:"8080"`
-	HealthzPort int    `default:"8081"`
+	Addr        string
+	Port        int
+	HealthzPort int
 	// Namespace is the namespace to create Event CRDs in.
 	Namespace string `default:"eventsrunner"`
 	// AuthType is the type of authentication used by the server.
@@ -153,6 +158,7 @@ func NewEventsRunnerAPI(kubeConfig *rest.Config, serverOpts ServerOpts) (*Events
 		server:             server,
 		healthzServer:      healthzServer,
 		eventsRunnerClient: eventsRunnerClient,
+		namespace:          serverOpts.Namespace,
 	}
 
 	if serverOpts.AuthType == JWT {
@@ -176,11 +182,29 @@ func NewEventsRunnerAPI(kubeConfig *rest.Config, serverOpts ServerOpts) (*Events
 	return eventsRunnerAPI, nil
 }
 
+// Start starts the eventsrunner-api server.
+func (erapi *EventsRunnerAPI) Start() error {
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	startServer := func(wg *sync.WaitGroup, server *http.Server) {
+		defer wg.Done()
+		if err := server.ListenAndServe(); err != nil {
+			if err != http.ErrServerClosed {
+
+			}
+		}
+	}
+	go startServer(&wg, erapi.server)
+	go startServer(&wg, erapi.healthzServer)
+	wg.Wait()
+	return nil
+}
+
 type eventRequestBody struct {
-	EventType  string        `json:"eventType"`
-	ResourceID string        `json:"resourceID"`
-	RuleID     string        `json:"ruleID"`
-	EventData  []interface{} `json:"eventData"`
+	EventType  erv1alpha1.EventType     `json:"eventType"`
+	ResourceID string                   `json:"resourceID"`
+	RuleID     string                   `json:"ruleID"`
+	EventData  []map[string]interface{} `json:"eventData"`
 }
 
 func healthzHandler(w http.ResponseWriter, r *http.Request) {
@@ -192,7 +216,39 @@ func (erapi *EventsRunnerAPI) eventPostHandler(w http.ResponseWriter, r *http.Re
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	// Parse Body
-	// Create Event 
+	var eventRequestBody eventRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&eventRequestBody); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	fmt.Printf("%+v\n", eventRequestBody)
+
+	eventData := make([]string, len(eventRequestBody.EventData))
+	for i, event := range eventRequestBody.EventData {
+		buffer := bytes.NewBuffer(nil)
+		if err := json.NewEncoder(buffer).Encode(event); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		eventData[i] = buffer.String()
+	}
+	event := &erv1alpha1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: fmt.Sprintf("%s-", eventRequestBody.ResourceID),
+			Namespace:    erapi.namespace,
+			Labels: map[string]string{
+				"er.io/rule-id": eventRequestBody.RuleID,
+			},
+		},
+		Spec: erv1alpha1.EventSpec{
+			EventType:  eventRequestBody.EventType,
+			ResourceID: eventRequestBody.ResourceID,
+			EventData:  eventData,
+		},
+	}
+	if _, err := erapi.eventsRunnerClient.Events(erapi.namespace).Create(context.TODO(), event, metav1.CreateOptions{}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }
