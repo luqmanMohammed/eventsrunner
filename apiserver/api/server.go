@@ -51,13 +51,14 @@ func (e MissingRequiredOptionError) Error() string {
 }
 
 // ServerOpts are options for creating a new eventsrunner-api server.
+// TODO: Group options together.
 type ServerOpts struct {
 	// Addr is the address to listen on.
 	Addr        string
 	Port        int
 	HealthzPort int
 	// Namespace is the namespace to create Event CRDs in.
-	Namespace string `default:"eventsrunner"`
+	Namespace string
 	// AuthType is the type of authentication used by the server.
 	AuthType AuthType
 	// JWTSecret is the secret used to sign JWT tokens.
@@ -91,6 +92,8 @@ func loadTLSConfig(caCertPath, certPath, keyPath string) (*tls.Config, error) {
 }
 
 // NewEventsRunnerAPI creates a new eventsrunner-api server.
+// TODO: Create generic function for validating options
+// TODO: Add tests for both jwt and mtls based auth
 func NewEventsRunnerAPI(kubeConfig *rest.Config, serverOpts ServerOpts) (*EventsRunnerAPI, error) {
 	// check required options
 	if serverOpts.Addr == "" {
@@ -200,6 +203,10 @@ func (erapi *EventsRunnerAPI) Start() error {
 	return nil
 }
 
+// TODO: Add methods to stop the server gracefully
+// TODO: Add method to listen for signals and gracefully stop the server
+
+// TODO: Add doc
 type eventRequestBody struct {
 	EventType  erv1alpha1.EventType     `json:"eventType"`
 	ResourceID string                   `json:"resourceID"`
@@ -207,10 +214,14 @@ type eventRequestBody struct {
 	EventData  []map[string]interface{} `json:"eventData"`
 }
 
+// TODO: Respons with { status: ok }
 func healthzHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// TODO: Add tests
+// TODO: What should happen when kube-api throttles the request?
+// TODO: Benchmark performance
 func (erapi *EventsRunnerAPI) eventPostHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -221,8 +232,6 @@ func (erapi *EventsRunnerAPI) eventPostHandler(w http.ResponseWriter, r *http.Re
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	fmt.Printf("%+v\n", eventRequestBody)
-
 	eventData := make([]string, len(eventRequestBody.EventData))
 	for i, event := range eventRequestBody.EventData {
 		buffer := bytes.NewBuffer(nil)
@@ -234,7 +243,7 @@ func (erapi *EventsRunnerAPI) eventPostHandler(w http.ResponseWriter, r *http.Re
 	}
 	event := &erv1alpha1.Event{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%s-", eventRequestBody.ResourceID),
+			GenerateName: eventRequestBody.ResourceID + "-",
 			Namespace:    erapi.namespace,
 			Labels: map[string]string{
 				"er.io/rule-id": eventRequestBody.RuleID,
@@ -250,5 +259,6 @@ func (erapi *EventsRunnerAPI) eventPostHandler(w http.ResponseWriter, r *http.Re
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	// TODO: Write meaningfull response body
 	w.WriteHeader(http.StatusOK)
 }
