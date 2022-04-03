@@ -47,18 +47,31 @@ const (
 	None AuthType = "none"
 )
 
-// MissingRequiredOptionError is returned when required options are missing.
+// MissingRequiredOptionError is returned when required configuration options are missing.
 type MissingRequiredOptionError struct {
 	Option string
 }
 
+// Error returns a string representation of the error.
+// Implements the error interface.
 func (e MissingRequiredOptionError) Error() string {
 	return fmt.Sprintf("missing required option: %s", e.Option)
 }
 
-// ServerOpts are options for creating a new eventsrunner-api server.
+// InvalidOptionError is returned when the configuration options are invalid.
+type InvalidOptionError struct {
+	OptionName   string
+	OptionValue  interface{}
+	ValidOptions []interface{}
+}
+
+func (iop InvalidOptionError) Error() string {
+	return fmt.Sprintf("invalid option: %s=%v, valid options: %v", iop.OptionName, iop.OptionValue, iop.ValidOptions)
+}
+
+// EventsRunnerAPIServerOpts are options for creating a new eventsrunner-api server.
 // TODO: Group options together.
-type ServerOpts struct {
+type EventsRunnerAPIServerOpts struct {
 	// Addr is the address to listen on.
 	Addr        string
 	Port        int
@@ -77,6 +90,53 @@ type ServerOpts struct {
 	CertPath string
 	// KeyPath is the path to the server key.
 	KeyPath string
+}
+
+// validate validates the configuration options.
+// Confirms all required options are present.
+// Confirms authType is valid.
+func (erOpts *EventsRunnerAPIServerOpts) validate() error {
+	if erOpts.Addr == "" {
+		return MissingRequiredOptionError{"Addr"}
+	}
+	if erOpts.Port == 0 {
+		return MissingRequiredOptionError{"Port"}
+	}
+	if erOpts.HealthzPort == 0 {
+		return MissingRequiredOptionError{"HealthzPort"}
+	}
+	if erOpts.AuthType == "" {
+		return MissingRequiredOptionError{"AuthType"}
+	}
+	if erOpts.Namespace == "" {
+		return MissingRequiredOptionError{"Namespace"}
+	}
+	if erOpts.AuthType == JWT && erOpts.JWTSecret == "" {
+		return MissingRequiredOptionError{"JWTSecret"}
+	}
+	if erOpts.EnableTLS {
+		if erOpts.CACert == "" {
+			return MissingRequiredOptionError{"CACert"}
+		}
+		if erOpts.CertPath == "" {
+			return MissingRequiredOptionError{"CertPath"}
+		}
+		if erOpts.KeyPath == "" {
+			return MissingRequiredOptionError{"KeyPath"}
+		}
+	}
+	if erOpts.AuthType != JWT && erOpts.AuthType != MTLS && erOpts.AuthType != None {
+		return InvalidOptionError{
+			OptionName:  "AuthType",
+			OptionValue: erOpts.AuthType,
+			ValidOptions: []interface{}{
+				JWT,
+				MTLS,
+				None,
+			},
+		}
+	}
+	return nil
 }
 
 // loadTLSConfig loads relevant certificates and returns a TLS config.
@@ -98,26 +158,13 @@ func loadTLSConfig(caCertPath, certPath, keyPath string) (*tls.Config, error) {
 }
 
 // NewEventsRunnerAPI creates a new eventsrunner-api server.
-// TODO: Create generic function for validating options
 // TODO: Add tests for both jwt and mtls based auth
-func NewEventsRunnerAPI(kubeConfig *rest.Config, serverOpts ServerOpts) (*EventsRunnerAPI, error) {
-	// check required options
-	if serverOpts.Addr == "" {
-		return nil, MissingRequiredOptionError{"Addr"}
-	}
-	if serverOpts.Port == 0 {
-		return nil, MissingRequiredOptionError{"Port"}
-	}
-	if serverOpts.HealthzPort == 0 {
-		return nil, MissingRequiredOptionError{"HealthzPort"}
-	}
-	if serverOpts.AuthType == "" {
-		return nil, MissingRequiredOptionError{"AuthType"}
-	}
-	if serverOpts.Namespace == "" {
-		return nil, MissingRequiredOptionError{"Namespace"}
+func NewEventsRunnerAPI(kubeConfig *rest.Config, serverOpts EventsRunnerAPIServerOpts) (*EventsRunnerAPI, error) {
+	if err := serverOpts.validate(); err != nil {
+		return nil, err
 	}
 
+	// creates server to handler healthz endpoint
 	healthzMux := http.NewServeMux()
 	healthzMux.HandleFunc("/healthz", healthzHandler)
 	healthzServer := &http.Server{
@@ -131,23 +178,9 @@ func NewEventsRunnerAPI(kubeConfig *rest.Config, serverOpts ServerOpts) (*Events
 		Addr:    fmt.Sprintf("%s:%d", serverOpts.Addr, serverOpts.Port),
 		Handler: mux,
 	}
-	// check jwt options
-	if serverOpts.AuthType == JWT {
-		if serverOpts.JWTSecret == "" {
-			return nil, MissingRequiredOptionError{Option: "JWTSecret"}
-		}
-	}
-	// check tls options
+
+	// if TLS is enabled then load the certificates and create a TLS config.
 	if serverOpts.EnableTLS {
-		if serverOpts.CACert == "" {
-			return nil, MissingRequiredOptionError{"CACert"}
-		}
-		if serverOpts.CertPath == "" {
-			return nil, MissingRequiredOptionError{"CertPath"}
-		}
-		if serverOpts.KeyPath == "" {
-			return nil, MissingRequiredOptionError{"KeyPath"}
-		}
 		tlsConfig, err := loadTLSConfig(serverOpts.CACert, serverOpts.CertPath, serverOpts.KeyPath)
 		if err != nil {
 			return nil, err
@@ -169,7 +202,6 @@ func NewEventsRunnerAPI(kubeConfig *rest.Config, serverOpts ServerOpts) (*Events
 		eventsRunnerClient: eventsRunnerClient,
 		namespace:          serverOpts.Namespace,
 	}
-
 	if serverOpts.AuthType == JWT {
 		keyFunc := func(ctx context.Context) (interface{}, error) {
 			return []byte(serverOpts.JWTSecret), nil
@@ -202,10 +234,11 @@ func (erapi *EventsRunnerAPI) Start() {
 	startServer := func(wg *sync.WaitGroup, server *http.Server) {
 		defer wg.Done()
 		if err := server.ListenAndServe(); err != nil {
-			if err != http.ErrServerClosed {
+			if err == http.ErrServerClosed {
 				klog.V(1).Info("Server successfully stopped")
+			} else {
+				klog.Fatalf("EventsRunnerAPI: ListenAndServe() failed: %v", err)
 			}
-			klog.Fatalf("EventsRunnerAPI: ListenAndServe() failed: %v", err)
 		}
 	}
 	go startServer(&wg, erapi.server)
@@ -294,7 +327,7 @@ func (eprb eventPostRequestBody) validate() error {
 		return validationError{Msg: "ruleID is required"}
 	}
 	if eprb.EventType != erAPI.ADDED && eprb.EventType != erAPI.UPDATED && eprb.EventType != erAPI.DELETED {
-		return validationError{Msg: "eventType must be one of ADDED, UPDATED, or DELETED"}
+		return validationError{Msg: "eventType must be one of added, updated, or deleted"}
 	}
 	return nil
 }
@@ -317,15 +350,31 @@ func handleEventPostResponse(w http.ResponseWriter, responseBody eventPostRespon
 	}
 }
 
+/*
+eventPostHandler handles POST requests to the /api/v1/events endpoint.
+It parses the request and creates an event resource under the configured namespace.
+Objects in the event data array will be parsed as string representations of JSON and will
+be added into event resource.
+
+If the request is invalid, it returns a 400 Bad Request response.
+
+If the request is valid, it returns a 200 Okay response with the resource name.
+
+If the api is throttled, it returns a 429 Too Many Requests response. This could happen due to
+the kube-apiserver rate limiting which would prevent the eventsrunner-api to create event crds.
+Client should handle retries for 429.
+*/
 // TODO: Add tests
 // TODO: Benchmark performance
 func (erapi *EventsRunnerAPI) eventPostHandler(w http.ResponseWriter, r *http.Request) {
+	// Only allow POST requests
 	if r.Method != http.MethodPost {
 		handleEventPostResponse(w, eventPostResponseBody{
 			Error: "Method not allowed",
 		}, http.StatusMethodNotAllowed)
 		return
 	}
+	// Parse and validate request body
 	var eventRequestBody eventPostRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&eventRequestBody); err != nil {
 		handleEventPostResponse(w, eventPostResponseBody{
