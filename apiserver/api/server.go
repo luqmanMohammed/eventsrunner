@@ -279,12 +279,12 @@ var healthzResponse map[string]string = map[string]string{
 // healthzHandler handles /healthz requests.
 // It returns a 200 OK response with the status "ok" in the body.
 func healthzHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(healthzResponse); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
 }
 
 // validationError is returned when the request is invalid.
@@ -364,7 +364,6 @@ If the api is throttled, it returns a 429 Too Many Requests response. This could
 the kube-apiserver rate limiting which would prevent the eventsrunner-api to create event crds.
 Client should handle retries for 429.
 */
-// TODO: Add tests
 // TODO: Benchmark performance
 func (erapi *EventsRunnerAPI) eventPostHandler(w http.ResponseWriter, r *http.Request) {
 	// Only allow POST requests
