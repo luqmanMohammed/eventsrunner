@@ -9,7 +9,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
+	"time"
 
 	middleware "github.com/auth0/go-jwt-middleware/v2"
 	"github.com/auth0/go-jwt-middleware/v2/validator"
@@ -209,6 +213,31 @@ func (erapi *EventsRunnerAPI) Start() {
 	wg.Wait()
 }
 
+// Stop gracefully shuts down the server and its components.
+func (erapi *EventsRunnerAPI) Stop(ctx context.Context) error {
+	klog.V(1).Info("Stopping eventsrunner-api healthz server")
+	timedCtx, cancelFunc := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancelFunc()
+	if err := erapi.server.Shutdown(timedCtx); err != nil {
+		return err
+	}
+	klog.V(1).Info("Stopping eventsrunner-api server")
+	if err := erapi.healthzServer.Shutdown(timedCtx); err != nil {
+		return err
+	}
+	return nil
+}
+
+// StopOnSignal gracefully shuts down the server and its components when
+// SIGTERM or SIGINT is received.
+func (erapi *EventsRunnerAPI) StopOnSignal() {
+	signalChan := make(chan os.Signal, 1)
+	defer close(signalChan)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	<-signalChan
+	erapi.Stop(context.Background())
+}
+
 // healthzResponse is the response body for the /healthz endpoint.
 var healthzResponse map[string]string = map[string]string{
 	"status": "ok",
@@ -224,9 +253,6 @@ func healthzHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 }
-
-// TODO: Add methods to stop the server gracefully
-// TODO: Add method to listen for signals and gracefully stop the server
 
 // validationError is returned when the request is invalid.
 // validationError can be caused by missing required fields or invalid values.
@@ -280,8 +306,8 @@ type eventPostResponseBody struct {
 	ResourceName string `json:"resourceName,omitempty"`
 }
 
-// handleEventPostRequest helps to handle response to the POST requests to the 
-// /api/v1/events endpoint. 
+// handleEventPostRequest helps to handle response to the POST requests to the
+// /api/v1/events endpoint.
 func handleEventPostResponse(w http.ResponseWriter, responseBody eventPostResponseBody, responseCode int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(responseCode)
@@ -337,8 +363,12 @@ func (erapi *EventsRunnerAPI) eventPostHandler(w http.ResponseWriter, r *http.Re
 			EventType:  eventRequestBody.EventType,
 			EventData:  eventData,
 		},
+		Status: erAPI.EventStatus{
+			State:   erAPI.PENDING,
+			Retries: 0,
+		},
 	}
-	event, err := erapi.eventsRunnerClient.Events(erapi.namespace).Create(context.TODO(), eventObj, metav1.CreateOptions{})
+	event, err := erapi.eventsRunnerClient.Events(erapi.namespace).Create(r.Context(), eventObj, metav1.CreateOptions{})
 	if err != nil {
 		if k8serrors.IsTooManyRequests(err) {
 			handleEventPostResponse(w, eventPostResponseBody{
