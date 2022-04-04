@@ -67,6 +67,22 @@ func runShellCommand(t *testing.T, command string) {
 	}
 }
 
+func postEvent(body map[string]interface{}) (int, *eventPostResponseBody, error) {
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return 0, nil, err
+	}
+	resp, err := http.Post("http://localhost:8080/api/v1/events", "application/json", bytes.NewReader(bodyBytes))
+	if err != nil {
+		return 0, nil, err
+	}
+	var eprb eventPostResponseBody
+	if err := json.NewDecoder(resp.Body).Decode(&eprb); err != nil {
+		return 0, nil, err
+	}
+	return resp.StatusCode, &eprb, nil
+}
+
 func TestServerStartupAndShutdown(t *testing.T) {
 	runnerAPI := createNewEventsRunnerAPI(t, nil)
 	go runnerAPI.Start()
@@ -101,6 +117,7 @@ func TestStopServerOnSignal(t *testing.T) {
 		}
 	}
 }
+
 func TestEventPost(t *testing.T) {
 	runShellCommand(t, "kubectl create namespace eventsrunner")
 	runShellCommand(t, "kubectl apply -f ../../crd/manifests")
@@ -120,22 +137,6 @@ func TestEventPost(t *testing.T) {
 		}
 	}
 	defer runnerAPI.Stop(context.Background())
-
-	postEvent := func(body map[string]interface{}) (int, *eventPostResponseBody, error) {
-		bodyBytes, err := json.Marshal(body)
-		if err != nil {
-			return 0, nil, err
-		}
-		resp, err := http.Post("http://localhost:8080/api/v1/events", "application/json", bytes.NewReader(bodyBytes))
-		if err != nil {
-			return 0, nil, err
-		}
-		var eprb eventPostResponseBody
-		if err := json.NewDecoder(resp.Body).Decode(&eprb); err != nil {
-			return 0, nil, err
-		}
-		return resp.StatusCode, &eprb, nil
-	}
 
 	missingRequiredFieldEvent := map[string]interface{}{
 		"eventType": "added",
@@ -203,6 +204,60 @@ func TestEventPost(t *testing.T) {
 	}
 	if createdEvent.Spec.EventType != "added" {
 		t.Fatalf("Expected eventype to be 'added'. got %v", createdEvent.Spec.EventType)
+	}
+
+}
+
+func BenchmarkPostEvent(b *testing.B) {
+	runShellCommand(&testing.T{}, "kubectl create namespace eventsrunner")
+	runShellCommand(&testing.T{}, "kubectl apply -f ../../crd/manifests")
+	defer runShellCommand(&testing.T{}, "kubectl delete namespace eventsrunner")
+	defer runShellCommand(&testing.T{}, "kubectl delete -f ../../crd/manifests")
+	erapiOpts := &EventsRunnerAPIServerOpts{
+		Addr:        "0.0.0.0",
+		Port:        8080,
+		HealthzPort: 8081,
+		Namespace:   "eventsrunner",
+		AuthType:    None,
+		EnableTLS:   false,
+	}
+	config, err := GetKubeAPIConfig("")
+	if err != nil {
+		b.Fatalf("Error getting rest config: %v", err)
+	}
+	runnerAPI, err := NewEventsRunnerAPI(config, *erapiOpts)
+	if err != nil {
+		b.Fatalf("Error creating runner API: %v", err)
+	}
+	go runnerAPI.Start()
+	defer runnerAPI.Stop(context.Background())
+	for {
+		resp, _ := http.Get("http://localhost:8081/healthz")
+		if resp != nil && resp.StatusCode == 200 {
+			b.Logf("Healthz endpoint is up")
+			break
+		} else {
+			b.Log("Waiting for server to start")
+			time.Sleep(time.Second)
+		}
+	}
+	b.ResetTimer()
+	b.Logf("Running benchmark with %d events", b.N)
+	for i := 0; i < b.N; i++ {
+		validEvent := map[string]interface{}{
+			"eventType":  "added",
+			"ruleID":     "test-rule",
+			"resourceID": "test-resource",
+			"eventData": []interface{}{
+				map[string]interface{}{
+					"key": "test-key",
+				},
+			},
+		}
+		statusCode, _, err := postEvent(validEvent)
+		if err != nil || statusCode != http.StatusOK {
+			b.Fatalf("Error posting valid event: %v", err)
+		}
 	}
 
 }
