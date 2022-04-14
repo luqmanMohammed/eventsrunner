@@ -9,18 +9,18 @@ install_generators: ## Intall generators
 	GO111MODULE=on go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest
 	GO111MODULE=on go install k8s.io/code-generator/cmd/{defaulter-gen,client-gen,lister-gen,informer-gen,deepcopy-gen}@latest 
 
-gen_crd_all: generate_crd_code generate_crd_manifests ## generate both code and manifests for crds
+gen_crd_all: gen_crd_code gen_crd_manifests ## generate both code and manifests for crds
 
-gen_crd_code: gen_crd_deep_copy ## generate deepcopy, listers, informers and cliensets for the types inside crd/pkg/apis/eventsrunner.io/v1alpha1
+gen_crd_code: gen_crd_deep_copy gen_crd_clientset_informer_lister ## generate deepcopy, listers, informers and cliensets for the types inside crd/pkg/apis/eventsrunner.io/v1alpha1
 
-gen_crd_deep_copy:
+gen_crd_deep_copy: ## generate deepcopy for the types inside crd/pkg/apis/eventsrunner.io/v1alpha1
 	deepcopy-gen --input-dirs ./crd/pkg/apis/eventsrunner.io/v1alpha1 \
         -O zz_generated.deepcopy \
         --go-header-file ./hack/go-file-header.txt \
         -p github.com/luqmanMohammed/eventsrunner \
         -o ./
 
-gen_crd_clientset_informer_lister:
+gen_crd_clientset_informer_lister: ## generate clientset, listers, informers for the types inside crd/pkg/apis/eventsrunner.io/v1alpha1
 	client-gen --clientset-name versioned --input-base '' \
         --input github.com/luqmanMohammed/eventsrunner/crd/pkg/apis/eventsrunner.io/v1alpha1 \
         --output-package github.com/luqmanMohammed/eventsrunner/crd/pkg/client/clientset \
@@ -36,12 +36,12 @@ gen_crd_clientset_informer_lister:
         --output-package github.com/luqmanMohammed/eventsrunner/crd/pkg/client/informers \
         --go-header-file ./hack/go-file-header.txt \
         -o ./
-	rm -rf crd/pkg/client
-	mv github.com/luqmanMohammed/eventsrunner/crd/pkg/client ./crd/pkg/client
-	rm -rf github.com
+	@rm -rf crd/pkg/client
+	@mv github.com/luqmanMohammed/eventsrunner/crd/pkg/client ./crd/pkg/client
+	@rm -rf github.com
+
 gen_crd_manifests: ## generate manifests for the types inside crd/pkg/apis/eventsrunner.io/v1alpha1
-	@echo "Generating manifests for crd/pkg/apis/eventsrunner.io/v1alpha1"
 	controller-gen paths=./crd/pkg/apis/eventsrunner.io/v1alpha1 crd:crdVersions=v1 output:crd:artifacts:config=./crd/manifests
 
-.DEFAULT_GOAL := all
-.PHONY: run build clean deepclean test
+.DEFAULT_GOAL := gen_crd_all
+.PHONY: install_generators gen_crd_all gen_crd_code gen_crd_deep_copy gen_crd_clientset_informer_lister gen_crd_manifests help
