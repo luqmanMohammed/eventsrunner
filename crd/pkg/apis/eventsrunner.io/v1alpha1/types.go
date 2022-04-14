@@ -33,9 +33,16 @@ const (
 
 // EventSpec will be used to store the exact request recieved by the eventsrunner-api
 type EventSpec struct {
-	ResourceID string    `json:"resourceID"`
-	RuleID     string    `json:"ruleID"`
-	EventType  EventType `json:"eventType"`
+
+	// EventOriginID will be used to uniquely identify the event origin.
+	// If empty " " will be used. Combination of EventOriginID and ResourceID should be unique
+	// for each resource and will be used in the following combination to create the event
+	// <EventOriginID>-<ResourceID>-<Genrated Random>
+	// +optional
+	EventOriginID string    `json:"eventOriginID"`
+	ResourceID    string    `json:"resourceID"`
+	RuleID        string    `json:"ruleID"`
+	EventType     EventType `json:"eventType"`
 	// +optional
 	EventData []string `json:"eventData"`
 }

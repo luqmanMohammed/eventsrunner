@@ -155,3 +155,5 @@ fabric.properties
 
 worknotes*
 coverage.html
+code-gen/*
+code-gen
