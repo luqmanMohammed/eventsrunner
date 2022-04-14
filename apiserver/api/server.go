@@ -364,7 +364,6 @@ If the api is throttled, it returns a 429 Too Many Requests response. This could
 the kube-apiserver rate limiting which would prevent the eventsrunner-api to create event crds.
 Client should handle retries for 429.
 */
-// TODO: Benchmark performance
 func (erapi *EventsRunnerAPI) eventPostHandler(w http.ResponseWriter, r *http.Request) {
 	// Only allow POST requests
 	if r.Method != http.MethodPost {
