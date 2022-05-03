@@ -51,7 +51,7 @@ func createRunnerCRD(t *testing.T, name string) *erAPI.Runner {
 					"eventsrunner.io/controller": "default",
 				},
 			},
-			Spec: v1.PodSpec{
+			Spec: &v1.PodSpec{
 				Containers: []v1.Container{
 					{
 						Name:  "runner",
@@ -92,6 +92,13 @@ func createRunnerBindingCRD(t *testing.T, name string, runnerName string, rules 
 			},
 			Runner: runnerName,
 			Rules:  rules,
+			Overides: &v1.PodSpec{
+				Containers: []v1.Container{
+					{
+						Image: "eventsrunner/ansible-runner",
+					},
+				},
+			},
 		}, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
@@ -120,6 +127,15 @@ func retryTest(t *testing.T, f func(try int) bool, retryCount int, interval time
 	}
 	t.Fatal(failMsg)
 }
+
+var (
+	mockEvent erAPI.Event = erAPI.Event{
+		ObjectMeta: metav1.ObjectMeta{},
+		Spec: erAPI.EventSpec{
+			RuleID: "rule1",
+		},
+	}
+)
 
 func TestRunnerResolverStart(t *testing.T) {
 	envSetup(t)

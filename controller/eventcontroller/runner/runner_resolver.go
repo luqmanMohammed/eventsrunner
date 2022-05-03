@@ -1,10 +1,13 @@
 package runner
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
+	common "github.com/luqmanMohammed/eventsrunner/common/pkg"
 	erAPI "github.com/luqmanMohammed/eventsrunner/crd/pkg/apis/eventsrunner.io/v1alpha1"
 	"github.com/luqmanMohammed/eventsrunner/crd/pkg/client/clientset/versioned"
 	erInformers "github.com/luqmanMohammed/eventsrunner/crd/pkg/client/informers/externalversions"
@@ -12,7 +15,11 @@ import (
 	"github.com/luqmanMohammed/eventsrunner/crd/pkg/client/informers/externalversions/internalinterfaces"
 )
 
+// RunnerResolver is a resolves runners based on a event. Event type and Rule ID
+// will be used to determine the specific binding to look for the runner. RunnerBinding
+// CRDs are used to configure the runner for a set of rules.
 type runnerResolver struct {
+	namespace              string
 	stopChan               chan struct{}
 	runnerInformerFactory  erInformers.SharedInformerFactory
 	runnerInformer         v1alpha1.RunnerInformer
@@ -42,6 +49,7 @@ func newRunnerResolver(kubeconfig *rest.Config, namespace string, controllerName
 	})
 
 	return &runnerResolver{
+		namespace:              namespace,
 		runnerInformerFactory:  inf,
 		runnerInformer:         runnerInformer,
 		runnerBindingsInformer: runnerBindingInformer,
@@ -57,4 +65,29 @@ func (r *runnerResolver) start() {
 
 func (r *runnerResolver) stop() {
 	close(r.stopChan)
+}
+
+type bindingNotFoundError struct {
+	ruleID string
+}
+
+func (e *bindingNotFoundError) Error() string {
+	return fmt.Sprintf("No runner binding found for rule %s", e.ruleID)
+}
+
+func (r *runnerResolver) resolve(event *erAPI.Event) (*erAPI.Runner, *erAPI.RunnerBinding, error) {
+	bindingsIntList, err := r.runnerBindingsInformer.Informer().GetIndexer().ByIndex("rules", event.Spec.RuleID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(bindingsIntList) == 0 {
+		return nil, nil, &bindingNotFoundError{ruleID: event.Spec.RuleID}
+	}
+	binding := common.ConvertInterfaceSliceToTyped[*erAPI.RunnerBinding](bindingsIntList)[0]
+	runnerName := binding.Runner
+	runner, err := r.runnerInformer.Lister().Runners(r.namespace).Get(runnerName)
+	if err != nil {
+		return nil, nil, err
+	}
+	return runner, binding, nil
 }
