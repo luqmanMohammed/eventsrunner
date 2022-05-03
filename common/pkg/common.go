@@ -32,3 +32,13 @@ func GetKubeAPIConfigOrDie(kubeConfigPath string) *rest.Config {
 	}
 	return clientConfig
 }
+
+// ConvertInterfaceSliceToTyped converts slice of interface{} to a slice of concrete type
+// provided via generics type parameter
+func ConvertInterfaceSliceToTyped[T any](slice []interface{}) []T {
+	retSlice := make([]T, len(slice))
+	for i, v := range slice {
+		retSlice[i] = v.(T)
+	}
+	return retSlice
+}
