@@ -23,3 +23,12 @@ func GetKubeAPIConfig(kubeConfigPath string) (*rest.Config, error) {
 	}
 	return clientConfig, nil
 }
+
+// GetKubeAPIConfigOrDie wraps GetKubeAPIConfig and panics if it fails
+func GetKubeAPIConfigOrDie(kubeConfigPath string) *rest.Config {
+	clientConfig, err := GetKubeAPIConfig(kubeConfigPath)
+	if err != nil {
+		klog.Fatalf("Failed to get kube config: %v", err)
+	}
+	return clientConfig
+}
