@@ -40,15 +40,32 @@ spec:
               by the eventsrunner-api
             properties:
               eventData:
+                description: EventData contains any extra data that is passed to the
+                  runner.
                 items:
                   type: string
                 type: array
+              eventOriginID:
+                description: EventOriginID will be used to uniquely identify the event
+                  origin. If empty " " will be used. Combination of EventOriginID
+                  and ResourceID should be unique for each resource and will be used
+                  in the following combination to create the event <EventOriginID>-<ResourceID>-<Genrated
+                  Random>
+                type: string
               eventType:
-                description: EventType define the type of the event
+                description: EventType is the type of the change on the resource.
+                  Can be added, updated or deleted Used to configure a specific runner
+                  for a specific type of change.
                 type: string
               resourceID:
+                description: ResourceID along with the event origin id will be used
+                  to uniquely identify the resource This is required to prevent concurrent
+                  changes to the resource.
                 type: string
               ruleID:
+                description: RuleID is the id of the rule that is being applied to
+                  the resource. Rule will be used to determine the runner to be used
+                  to process the event.
                 type: string
             required:
             - eventType
@@ -60,12 +77,20 @@ spec:
               event
             properties:
               retries:
+                description: Retries depicts the number of retries that have been
+                  done for the event
                 type: integer
-              status:
-                description: EventState Depicts the current state of the event
+              ruleBindingName:
+                description: RuleBindingName depicts the name of the rule binding
+                  that is associated with the event
                 type: string
-            required:
-            - status
+              runnerName:
+                description: RunnerName depicts the name of the runner that is associated
+                  with the event
+                type: string
+              status:
+                description: State depicts the current state of the event
+                type: string
             type: object
         required:
         - spec
