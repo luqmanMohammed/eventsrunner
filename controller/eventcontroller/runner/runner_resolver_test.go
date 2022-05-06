@@ -51,11 +51,21 @@ func createRunnerCRD(t *testing.T, name string) *erAPI.Runner {
 					"eventsrunner.io/controller": "default",
 				},
 			},
-			Spec: &v1.PodSpec{
+			Spec: v1.PodSpec{
 				Containers: []v1.Container{
 					{
 						Name:  "runner",
 						Image: "eventsrunner/terraform-runner",
+						Env: []v1.EnvVar{
+							{
+								Name:  "runner_name",
+								Value: "terraform",
+							},
+							{
+								Name:  "version",
+								Value: "0.0.1",
+							},
+						},
 					},
 				},
 			},
@@ -92,10 +102,16 @@ func createRunnerBindingCRD(t *testing.T, name string, runnerName string, rules 
 			},
 			Runner: runnerName,
 			Rules:  rules,
-			Overides: &v1.PodSpec{
-				Containers: []v1.Container{
-					{
+			Overides: &erAPI.RunnerOveride{
+				Containers: map[string]erAPI.RunnerContainerOveride{
+					"runner": {
 						Image: "eventsrunner/ansible-runner",
+						Env: []v1.EnvVar{
+							{
+								Name:  "runner_name",
+								Value: "ansible",
+							},
+						},
 					},
 				},
 			},
@@ -187,4 +203,27 @@ func TestRunnerResolverStart(t *testing.T) {
 		}
 		return true
 	}, 10, time.Second, "binding1 not found")
+
+	podSpec, err := runnerResolver.resolvePodSpec(&mockEvent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if podSpec.Containers[0].Name != "runner" {
+		t.Fatalf("expected runner, got %s", podSpec.Containers[0].Name)
+	}
+	if len(podSpec.Containers[0].Env) != 2 {
+		t.Fatalf("expected 2 env vars, got %d", len(podSpec.Containers[0].Env))
+	}
+	if podSpec.Containers[0].Env[0].Name != "runner_name" {
+		t.Fatalf("expected runner_name, got %s", podSpec.Containers[0].Env[0].Name)
+	}
+	if podSpec.Containers[0].Env[0].Value != "ansible" {
+		t.Fatalf("expected ansible, got %s", podSpec.Containers[0].Env[0].Value)
+	}
+	if podSpec.Containers[0].Env[1].Value != "0.0.1" {
+		t.Fatalf("expected 0.0.1, got %s", podSpec.Containers[0].Env[1].Value)
+	}
+	if podSpec.Containers[0].Image != "eventsrunner/ansible-runner" {
+		t.Fatalf("expected eventsrunner/ansible-runner, got %s", podSpec.Containers[0].Image)
+	}
 }

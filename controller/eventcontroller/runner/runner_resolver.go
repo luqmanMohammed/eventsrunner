@@ -3,6 +3,7 @@ package runner
 import (
 	"fmt"
 
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -90,4 +91,46 @@ func (r *runnerResolver) resolve(event *erAPI.Event) (*erAPI.Runner, *erAPI.Runn
 		return nil, nil, err
 	}
 	return runner, binding, nil
+}
+
+func (r *runnerResolver) resolvePodSpec(event *erAPI.Event) (*v1.PodSpec, error) {
+	runner, binding, err := r.resolve(event)
+	mergedSpec := runner.Spec.DeepCopy()
+	if err != nil {
+		return nil, err
+	}
+	if binding.Overides == nil {
+		return mergedSpec, nil
+	}
+	if binding.Overides.ServiceAccount != "" {
+		mergedSpec.ServiceAccountName = binding.Overides.ServiceAccount
+	}
+	mergedContainers := make([]v1.Container, 0, len(mergedSpec.Containers))
+	for _, container := range mergedSpec.Containers {
+		overideContainer, ok := binding.Overides.Containers[container.Name]
+		if ok {
+			if overideContainer.Image != "" {
+				container.Image = overideContainer.Image
+			}
+			if overideContainer.Command != nil {
+				container.Command = overideContainer.Command
+			}
+			if overideContainer.Args != nil {
+				container.Args = overideContainer.Args
+			}
+			mergedEnvs := make([]v1.EnvVar, 0, len(container.Env))
+			for _, env := range container.Env {
+				for _, overideEnv := range overideContainer.Env {
+					if env.Name == overideEnv.Name {
+						env.Value = overideEnv.Value
+					}
+				}
+				mergedEnvs = append(mergedEnvs, env)
+			}
+			container.Env = mergedEnvs
+		}
+		mergedContainers = append(mergedContainers, container)
+	}
+	mergedSpec.Containers = mergedContainers
+	return mergedSpec, nil
 }
