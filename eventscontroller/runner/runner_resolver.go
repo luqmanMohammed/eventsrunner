@@ -16,7 +16,7 @@ import (
 	"github.com/luqmanMohammed/eventsrunner/crd/pkg/client/informers/externalversions/internalinterfaces"
 )
 
-// RunnerResolver is a resolves runners based on a event. Event type and Rule ID
+// runnerResolver is a resolves runners based on a event. Event type and Rule ID
 // will be used to determine the specific binding to look for the runner. RunnerBinding
 // CRDs are used to configure the runner for a set of rules.
 type runnerResolver struct {
@@ -27,6 +27,10 @@ type runnerResolver struct {
 	runnerBindingsInformer v1alpha1.RunnerBindingInformer
 }
 
+// newRunnerResolver creates a pointer to a new runner resolver.
+// It registers the informer factory and creates informers runner and runner binding crds.
+// CRDS in the confirgured namespace with the label "eventsrunner.io/controller=<controler_name>"
+// will be considered.
 func newRunnerResolver(kubeconfig *rest.Config, namespace string, controllerName string) (*runnerResolver, error) {
 	clientset, err := versioned.NewForConfig(kubeconfig)
 	if err != nil {
@@ -35,6 +39,7 @@ func newRunnerResolver(kubeconfig *rest.Config, namespace string, controllerName
 	inf := erInformers.NewFilteredSharedInformerFactory(clientset, 0, namespace, internalinterfaces.TweakListOptionsFunc(func(lo *metav1.ListOptions) {
 		lo.LabelSelector = "eventsrunner.io/controller=" + controllerName
 	}))
+
 	runnerInformer := inf.Eventsrunner().V1alpha1().Runners()
 	runnerBindingInformer := inf.Eventsrunner().V1alpha1().RunnerBindings()
 
@@ -42,6 +47,7 @@ func newRunnerResolver(kubeconfig *rest.Config, namespace string, controllerName
 		"name": cache.MetaNamespaceIndexFunc,
 	})
 
+	// custom index to find runner bindings by rule id
 	runnerBindingInformer.Informer().AddIndexers(cache.Indexers{
 		"rules": func(obj interface{}) ([]string, error) {
 			binding := obj.(*erAPI.RunnerBinding)
@@ -57,6 +63,8 @@ func newRunnerResolver(kubeconfig *rest.Config, namespace string, controllerName
 	}, nil
 }
 
+// start starts the informer factory and waits for the informer to be synced.
+// start is a blocking call, call stop to release.
 func (r *runnerResolver) start() {
 	r.stopChan = make(chan struct{})
 	r.runnerInformerFactory.Start(r.stopChan)
@@ -64,10 +72,13 @@ func (r *runnerResolver) start() {
 	<-r.stopChan
 }
 
+// stop stops the informer factory by closing the stop channel.
 func (r *runnerResolver) stop() {
 	close(r.stopChan)
 }
 
+// bindingNotFoundError is an error that is returned when no runner binding is
+// found for a rule.
 type bindingNotFoundError struct {
 	ruleID string
 }
@@ -76,7 +87,12 @@ func (e *bindingNotFoundError) Error() string {
 	return fmt.Sprintf("No runner binding found for rule %s", e.ruleID)
 }
 
-func (r *runnerResolver) resolve(event *erAPI.Event) (*erAPI.Runner, *erAPI.RunnerBinding, error) {
+// resolve resolves a runner based on the event and rule id taken from the event.
+// If no runner binding is found for the rule id, an error is returned.
+// If multiple runner bindings are found, the first one is used.
+// If updateEvent is true, the event will be updated with the runner name and runner binding name.
+func (r *runnerResolver) resolve(event *erAPI.Event, updateEvent bool) (*erAPI.Runner, *erAPI.RunnerBinding, error) {
+	// get the runner binding for the rule id using the above initialized index
 	bindingsIntList, err := r.runnerBindingsInformer.Informer().GetIndexer().ByIndex("rules", event.Spec.RuleID)
 	if err != nil {
 		return nil, nil, err
@@ -90,11 +106,19 @@ func (r *runnerResolver) resolve(event *erAPI.Event) (*erAPI.Runner, *erAPI.Runn
 	if err != nil {
 		return nil, nil, err
 	}
+	if updateEvent {
+		event.Status.RunnerName = runnerName
+		event.Status.RuleBindingName = binding.Name
+	}
 	return runner, binding, nil
 }
 
+// resolvePodSpec resolves a podSpec that can be used to create a runner pod based
+// on the event provided.
+// TODO: Re-evaluate this function. Merging pod specs can be genaralized.
 func (r *runnerResolver) resolvePodSpec(event *erAPI.Event) (*v1.PodSpec, error) {
-	runner, binding, err := r.resolve(event)
+	runner, binding, err := r.resolve(event, true)
+	// TODO: Move merge to a separate function
 	mergedSpec := runner.Spec.DeepCopy()
 	if err != nil {
 		return nil, err
