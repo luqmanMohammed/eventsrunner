@@ -4,4 +4,3 @@ package runner
 // for the given event and also managing the runner lifecycle.
 type Manager struct {
 }
-
