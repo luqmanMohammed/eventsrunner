@@ -1,6 +1,9 @@
 package pkg
 
 import (
+	"sort"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
@@ -41,4 +44,17 @@ func ConvertInterfaceSliceToTyped[T any](slice []interface{}) []T {
 		retSlice[i] = v.(T)
 	}
 	return retSlice
+}
+
+// K8sTimeSorter is an interface that can be implemented by K8s objects that have a creation timestamp
+type K8sTimeSorter interface {
+	GetCreationTimestamp() metav1.Time
+}
+
+// SortK8sObjectsSliceByCreationTimestamp sorts a slice of K8s objects by creation timestamp
+func SortK8sObjectsSliceByCreationTimestamp[T K8sTimeSorter](slice []T) {
+	sort.Slice(slice, func(i, j int) bool {
+		return slice[i].GetCreationTimestamp().UTC().Before(
+			slice[j].GetCreationTimestamp().UTC())
+	})
 }

@@ -2,8 +2,6 @@
 package controller
 
 import (
-	"sort"
-
 	common "github.com/luqmanMohammed/eventsrunner/common/pkg"
 	erapi "github.com/luqmanMohammed/eventsrunner/crd/pkg/apis/eventsrunner.io/v1alpha1"
 	"github.com/luqmanMohammed/eventsrunner/crd/pkg/client/clientset/versioned"
@@ -15,25 +13,15 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type K8sTimeSorter interface {
-	GetCreationTimestamp() metav1.Time
-}
-
-// SortK8sObjectsSliceByCreationTimestamp sorts a slice of K8s objects by creation timestamp
-func SortK8sObjectsSliceByCreationTimestamp[T K8sTimeSorter](slice []T) {
-	sort.Slice(slice, func(i, j int) bool {
-		return slice[i].GetCreationTimestamp().UTC().Before(
-			slice[j].GetCreationTimestamp().UTC())
-	})
-}
-
 // Controller is responsible for listening for new event crds and reacting to their
 // creation and deletion.
 type Controller struct {
-	namespace       string
-	name            string
-	informerFactory erinformers.SharedInformerFactory
-	eventInformer   v1alpha1.EventInformer
+	namespace             string
+	name                  string
+	informerFactory       erinformers.SharedInformerFactory
+	eventInformer         v1alpha1.EventInformer
+	runnerBindingInformer v1alpha1.RunnerBindingInformer
+	runnerInformer        v1alpha1.RunnerInformer
 }
 
 func (c *Controller) processWaitingEvent(event *erapi.Event) {
@@ -45,18 +33,34 @@ func (c *Controller) processWaitingEvent(event *erapi.Event) {
 	if len(events) == 0 {
 		event.Status.State = erapi.EventStatePending
 	} else {
-		SortK8sObjectsSliceByCreationTimestamp[*erapi.Event](events)
+		common.SortK8sObjectsSliceByCreationTimestamp[*erapi.Event](events)
 		lastEvent := events[len(events)-1]
 		event.Status.DependentEventID = lastEvent.Name
 	}
+}
+
+func (c *Controller) processPendingEvent(event *erapi.Event) {
+	runnerBindingsInter, err := c.runnerBindingInformer.Informer().GetIndexer().ByIndex("rules", event.Spec.RuleID)
+	if err != nil {
+		return
+	}
+	if len(runnerBindingsInter) == 0 {
+		return
+	}
+	runnerBindings := common.ConvertInterfaceSliceToTyped[*erapi.RunnerBinding](runnerBindingsInter)
+	common.SortK8sObjectsSliceByCreationTimestamp[*erapi.RunnerBinding](runnerBindings)
+	lastRunnerBinding := runnerBindings[len(runnerBindings)-1]
+	event.Status.RuleBindingName = lastRunnerBinding.Name
+	event.Status.RunnerName = lastRunnerBinding.Runner
+	event.Status.State = erapi.EventStateAssigned
 }
 
 func (c *Controller) processEvent(event *erapi.Event) {
 	switch event.Status.State {
 	case erapi.EventStateWaiting:
 		c.processWaitingEvent(event)
-	case erapi.EventStateProcessing:
-
+	case erapi.EventStatePending:
+		c.processPendingEvent(event)
 	}
 }
 
@@ -78,6 +82,13 @@ func New(kubeconfig *rest.Config, name, namespace string) (*Controller, error) {
 		"resource": func(obj interface{}) ([]string, error) {
 			event := obj.(*erapi.Event)
 			return []string{event.Spec.ResourceID}, nil
+		},
+	})
+	runnerBindingInformer := inf.Eventsrunner().V1alpha1().RunnerBindings()
+	runnerBindingInformer.Informer().AddIndexers(cache.Indexers{
+		"rules": func(obj interface{}) ([]string, error) {
+			binding := obj.(*erapi.RunnerBinding)
+			return binding.Rules, nil
 		},
 	})
 	return &Controller{
