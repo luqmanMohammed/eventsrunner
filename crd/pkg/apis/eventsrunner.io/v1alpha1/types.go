@@ -58,6 +58,8 @@ type EventSpec struct {
 type EventState string
 
 const (
+	// EventStateEmpty is the initial state of the event
+	EventStateEmpty EventState = ""
 	// EventStatePending is the state of the event is yet to be assigned a runner
 	EventStatePending EventState = "pending"
 	// EventStateWaiting is the state of the event where it is waiting for a dependent

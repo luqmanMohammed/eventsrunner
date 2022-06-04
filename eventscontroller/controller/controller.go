@@ -2,11 +2,14 @@
 package controller
 
 import (
+	"context"
+	"fmt"
+
 	common "github.com/luqmanMohammed/eventsrunner/common/pkg"
 	erapi "github.com/luqmanMohammed/eventsrunner/crd/pkg/apis/eventsrunner.io/v1alpha1"
 	"github.com/luqmanMohammed/eventsrunner/crd/pkg/client/clientset/versioned"
 	erinformers "github.com/luqmanMohammed/eventsrunner/crd/pkg/client/informers/externalversions"
-	"github.com/luqmanMohammed/eventsrunner/crd/pkg/client/informers/externalversions/eventsrunner.io/v1alpha1"
+	versionederinformers "github.com/luqmanMohammed/eventsrunner/crd/pkg/client/informers/externalversions/eventsrunner.io/v1alpha1"
 	"github.com/luqmanMohammed/eventsrunner/crd/pkg/client/informers/externalversions/internalinterfaces"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -19,9 +22,10 @@ type Controller struct {
 	namespace             string
 	name                  string
 	informerFactory       erinformers.SharedInformerFactory
-	eventInformer         v1alpha1.EventInformer
-	runnerBindingInformer v1alpha1.RunnerBindingInformer
-	runnerInformer        v1alpha1.RunnerInformer
+	eventInformer         versionederinformers.EventInformer
+	runnerBindingInformer versionederinformers.RunnerBindingInformer
+	processQueue          chan *erapi.Event
+	erClientset           *versioned.Clientset
 }
 
 func (c *Controller) processWaitingEvent(event *erapi.Event) {
@@ -56,11 +60,21 @@ func (c *Controller) processPendingEvent(event *erapi.Event) {
 }
 
 func (c *Controller) processEvent(event *erapi.Event) {
+	fmt.Printf("Processing event %s\n", event.Name)
 	switch event.Status.State {
+	case erapi.EventStateEmpty:
+		event.Status.State = erapi.EventStateWaiting
 	case erapi.EventStateWaiting:
 		c.processWaitingEvent(event)
 	case erapi.EventStatePending:
 		c.processPendingEvent(event)
+	case erapi.EventStateAssigned:
+	default:
+		return
+	}
+	_, err := c.erClientset.EventsrunnerV1alpha1().Events(c.namespace).Update(context.TODO(), event, metav1.UpdateOptions{})
+	if err != nil {
+		fmt.Println(err)
 	}
 }
 
@@ -91,14 +105,39 @@ func New(kubeconfig *rest.Config, name, namespace string) (*Controller, error) {
 			return binding.Rules, nil
 		},
 	})
+
+	clientset, err := versioned.NewForConfig(kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Controller{
-		name:            name,
-		namespace:       namespace,
-		informerFactory: inf,
+		name:                  name,
+		namespace:             namespace,
+		informerFactory:       inf,
+		eventInformer:         eventInformer,
+		runnerBindingInformer: runnerBindingInformer,
+		processQueue:          make(chan *erapi.Event, 1000),
+		erClientset:           clientset,
 	}, nil
 }
 
-// Run will start the controller.
-func (Controller) Run() {
+func (c *Controller) registerEventHandlers() {
+	c.eventInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.processEvent(obj.(*erapi.Event))
+		},
+		UpdateFunc: func(old, new interface{}) {
+			c.processEvent(new.(*erapi.Event))
+		},
+	})
+}
 
+// Run will start the controller.
+func (c *Controller) Run(stopChan <-chan struct{}) {
+	go c.informerFactory.Start(stopChan)
+	c.informerFactory.WaitForCacheSync(stopChan)
+	c.registerEventHandlers()
+	fmt.Println("Started")
+	<-stopChan
 }
