@@ -94,6 +94,9 @@ type EventStatus struct {
 	// RunnerName depicts the name of the runner that is associated with the event
 	// +optional
 	RunnerName string `json:"runnerName"`
+	// DependentEventID depicts the id of the dependent event that is associated with the event
+	// +optional
+	DependentEventID string `json:"dependentEventID"`
 }
 
 // EventList is a list of EREvents
