@@ -12,4 +12,25 @@ resources:
   kind: Event
   path: github.com/luqmanMohammed/eventsrunner/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: eventsrunner.io
+  kind: Runner
+  path: github.com/luqmanMohammed/eventsrunner/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: eventsrunner.io
+  kind: RunnerBinding
+  path: github.com/luqmanMohammed/eventsrunner/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: eventsrunner.io
+  kind: RulesOpts
+  path: github.com/luqmanMohammed/eventsrunner/api/v1alpha1
+  version: v1alpha1
 version: "3"
