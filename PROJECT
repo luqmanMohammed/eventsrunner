@@ -1,0 +1,6 @@
+domain: eventsrunner.io
+layout:
+- go.kubebuilder.io/v3
+projectName: eventsrunner
+repo: github.com/luqmanMohammed/eventsrunner
+version: "3"
