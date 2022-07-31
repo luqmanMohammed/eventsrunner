@@ -1,0 +1,6 @@
+apiVersion: eventsrunner.io/v1alpha1
+kind: RulesOpts
+metadata:
+  name: rulesopts-sample
+spec:
+  # TODO(user): Add fields here

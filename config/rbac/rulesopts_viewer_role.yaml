@@ -1,0 +1,20 @@
+# permissions for end users to view rulesopts.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rulesopts-viewer-role
+rules:
+- apiGroups:
+  - eventsrunner.io
+  resources:
+  - rulesopts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - eventsrunner.io
+  resources:
+  - rulesopts/status
+  verbs:
+  - get

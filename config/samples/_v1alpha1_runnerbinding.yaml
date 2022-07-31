@@ -1,0 +1,6 @@
+apiVersion: eventsrunner.io/v1alpha1
+kind: RunnerBinding
+metadata:
+  name: runnerbinding-sample
+spec:
+  # TODO(user): Add fields here
