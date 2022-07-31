@@ -3,4 +3,13 @@ layout:
 - go.kubebuilder.io/v3
 projectName: eventsrunner
 repo: github.com/luqmanMohammed/eventsrunner
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: eventsrunner.io
+  kind: Event
+  path: github.com/luqmanMohammed/eventsrunner/api/v1alpha1
+  version: v1alpha1
 version: "3"
