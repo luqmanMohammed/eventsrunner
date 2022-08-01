@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -24,30 +25,17 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // RunnerSpec defines the desired state of Runner
-type RunnerSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Runner. Edit runner_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
-}
-
-// RunnerStatus defines the observed state of Runner
-type RunnerStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-}
+// RunnerSpec defines the pod specification of a runner.
+type RunnerSpec v1.PodSpec
 
 //+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
 
 // Runner is the Schema for the runners API
 type Runner struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   RunnerSpec   `json:"spec,omitempty"`
-	Status RunnerStatus `json:"status,omitempty"`
+	Spec RunnerSpec `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true
