@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - eventsrunner.io
+  resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - eventsrunner.io
+  resources:
+  - events/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - eventsrunner.io
+  resources:
+  - events/status
+  verbs:
+  - get
+  - patch
+  - update

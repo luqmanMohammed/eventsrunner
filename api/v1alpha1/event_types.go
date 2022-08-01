@@ -14,28 +14,50 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kubebuilder:validation:Required
+
 package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+const (
+	// AddedEventType is the type of event when a resource is added.
+	AddedEventType EventType = "added"
+	// ModifiedEventType is the type of event when a resource is updated.
+	ModifiedEventType EventType = "modified"
+	// DeletedEventType is the type of event when a resource is deleted.
+	DeletedEventType EventType = "deleted"
+)
+
+// +kubebuilder:validation:Enum={added,modified,deleted}
+
+// EventType is the type of event
+type EventType string
 
 // EventSpec defines the desired state of Event
 type EventSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Event. Edit event_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	RuleID     string    `json:"ruleID,omitempty"`
+	ResourceID string    `json:"resourceID,omitempty"`
+	EventType  EventType `json:"eventType,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +optional
+	EventData map[string]interface{} `json:"eventData,omitempty"`
+	// +optional
+	RunnerName string `json:"runnerName,omitempty"`
 }
 
 // EventStatus defines the observed state of Event
 type EventStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// +optional
+	JobName string `json:"jobName,omitempty"`
+	// +optional
+	DependsOn string `json:"dependsOn,omitempty"`
+	// +optional
+	Completed bool `json:"completed,omitempty"`
+	// +optional
+	Retries int `json:"retries,omitempty"`
 }
 
 //+kubebuilder:object:root=true
