@@ -2,5 +2,15 @@ apiVersion: eventsrunner.io/v1alpha1
 kind: Runner
 metadata:
   name: runner-sample
+  namespace: eventsrunner
+  labels:
+    eventsrunner.io/identifier: eventsrunner
 spec:
-  # TODO(user): Add fields here
+  metadata:
+    labels:
+      test: test
+  spec:
+    restartPolicy: Never
+    containers:
+      - name: test
+        image: busybox

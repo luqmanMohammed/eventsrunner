@@ -41,23 +41,35 @@ type EventSpec struct {
 	RuleID     string    `json:"ruleID,omitempty"`
 	ResourceID string    `json:"resourceID,omitempty"`
 	EventType  EventType `json:"eventType,omitempty"`
-	// +kubebuilder:validation:Schemaless
+
+	// EventData is a JSON object containing the event data.
 	// +optional
-	EventData map[string]interface{} `json:"eventData,omitempty"`
+	EventData string `json:"eventData,omitempty"`
 	// +optional
 	RunnerName string `json:"runnerName,omitempty"`
 }
 
+const (
+	// WaitingEventState is the state of an event waiting for a runner to be assigned.
+	WaitingEventState EventState = "waiting"
+	// RunningEventState is the state of a running event.
+	RunningEventState EventState = "running"
+	// CompletedEventState is the state of a completed event.
+	CompletedEventState EventState = "completed"
+	// FailedEventState is the state of a failed event.
+	FailedEventState EventState = "failure"
+)
+
+// EventState represents the current state of the event.
+// TODO: Does this break best practice?
+type EventState string
+
 // EventStatus defines the observed state of Event
 type EventStatus struct {
-	// +optional
-	JobName string `json:"jobName,omitempty"`
-	// +optional
-	DependsOn string `json:"dependsOn,omitempty"`
-	// +optional
-	Completed bool `json:"completed,omitempty"`
-	// +optional
-	Retries int `json:"retries,omitempty"`
+	JobName   string     `json:"jobName,omitempty"`
+	DependsOn string     `json:"dependsOn,omitempty"`
+	Retries   int        `json:"retries,omitempty"`
+	State     EventState `json:"state,omitempty"`
 }
 
 //+kubebuilder:object:root=true

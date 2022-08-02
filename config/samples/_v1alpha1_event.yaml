@@ -2,5 +2,10 @@ apiVersion: eventsrunner.io/v1alpha1
 kind: Event
 metadata:
   name: event-sample
+  namespace: eventsrunner
+  labels:
+    eventsrunner.io/identifier: eventsrunner
 spec:
-  # TODO(user): Add fields here
+  eventType: added
+  ruleID: events-sample-rule
+  resourceID: events-sample-resource
