@@ -26,7 +26,7 @@ import (
 
 // RunnerSpec defines the desired state of Runner
 // RunnerSpec defines the pod specification of a runner.
-type RunnerSpec v1.PodSpec
+type RunnerSpec v1.PodTemplateSpec
 
 //+kubebuilder:object:root=true
 

@@ -25,12 +25,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/api/v1alpha1"
+	runner "github.com/luqmanMohammed/eventsrunner/runner"
+	batchv1 "k8s.io/api/batch/v1"
 )
 
 // EventReconciler reconciles a Event object
 type EventReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme        *runtime.Scheme
+	RunnerManager runner.Manager
 }
 
 //+kubebuilder:rbac:groups=eventsrunner.io,resources=events,verbs=get;list;watch;create;update;patch;delete
@@ -47,10 +50,27 @@ type EventReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.1/pkg/reconcile
 func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
-
-	// TODO(user): your logic here
-
+	logger := log.FromContext(ctx)
+	var event eventsrunneriov1alpha1.Event
+	if err := r.Get(ctx, req.NamespacedName, &event); err != nil {
+		logger.Error(err, "unable to fetch Event")
+		return ctrl.Result{
+			Requeue: false,
+		}, client.IgnoreNotFound(err)
+	}
+	if event.Spec.RunnerName == "" {
+		logger.V(1).Info("Event has no runner name")
+		runnerName, err := r.RunnerManager.ResolveRunner(ctx, &event)
+		if err != nil {
+			logger.Error(err, "unable to resolve runner")
+			return ctrl.Result{}, err
+		}
+		event.Spec.RunnerName = runnerName
+		if err := r.Update(ctx, &event); err != nil {
+			logger.Error(err, "unable to update event")
+			return ctrl.Result{}, err
+		}
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -58,5 +78,6 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 func (r *EventReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&eventsrunneriov1alpha1.Event{}).
+		Owns(&batchv1.Job{}).
 		Complete(r)
 }

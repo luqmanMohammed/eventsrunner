@@ -35,7 +35,9 @@ spec:
           spec:
             description: EventSpec defines the desired state of Event
             properties:
-              eventData: {}
+              eventData:
+                description: EventData is a JSON object containing the event data.
+                type: string
               eventType:
                 description: EventType is the type of event
                 enum:
@@ -53,14 +55,16 @@ spec:
           status:
             description: EventStatus defines the observed state of Event
             properties:
-              completed:
-                type: boolean
               dependsOn:
                 type: string
               jobName:
                 type: string
               retries:
                 type: integer
+              state:
+                description: 'EventState represents the current state of the event.
+                  TODO: Does this break best practice?'
+                type: string
             type: object
         type: object
     served: true

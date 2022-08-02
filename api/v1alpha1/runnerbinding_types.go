@@ -28,7 +28,6 @@ type RunnerBinding struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	RunnerName string   `json:"runnerName,omitempty"`
-	// +kubebuilder:validation:UniqueItems=true
 	Rules      []string `json:"rules,omitempty"`
 }
 
