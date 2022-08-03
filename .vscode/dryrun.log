@@ -2,12 +2,9 @@ make --dry-run --always-make --keep-going --print-directory
 make: Entering directory '/home/uluqmmo/personal/eventsrunner'
  
 mkdir -p /home/uluqmmo/personal/eventsrunner/bin
- 
 GOBIN=/home/uluqmmo/personal/eventsrunner/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.9.0
- 
 /home/uluqmmo/personal/eventsrunner/bin/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
 go fmt ./...
- 
 go vet ./...
 go build -o bin/manager main.go
 make: Leaving directory '/home/uluqmmo/personal/eventsrunner'
