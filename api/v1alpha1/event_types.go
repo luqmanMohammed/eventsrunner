@@ -47,6 +47,8 @@ type EventSpec struct {
 	EventData string `json:"eventData,omitempty"`
 	// +optional
 	RunnerName string `json:"runnerName,omitempty"`
+	// +optional
+	DependsOn string `json:"dependsOn,omitempty"`
 }
 
 const (
@@ -66,10 +68,8 @@ type EventState string
 
 // EventStatus defines the observed state of Event
 type EventStatus struct {
-	JobName   string     `json:"jobName,omitempty"`
-	DependsOn string     `json:"dependsOn,omitempty"`
-	Retries   int        `json:"retries,omitempty"`
-	State     EventState `json:"state,omitempty"`
+	State   EventState `json:"state,omitempty"`
+	Message string     `json:"message,omitempty"`
 }
 
 //+kubebuilder:object:root=true
