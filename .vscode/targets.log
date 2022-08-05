@@ -6,7 +6,7 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Wed Aug  3 23:28:19 2022
+# Make data base, printed on Fri Aug  5 19:18:06 2022
 
 # Variables
 
@@ -14,6 +14,8 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 <D = $(patsubst %/,%,$(dir $<))
 # automatic
 ?F = $(notdir $?)
+# environment
+AWS_SECRET_ACCESS_KEY = 3F6lqvhfmb5SctoE5v9mzYa/cA7v8as+eu1yvaD1
 # environment
 WSLENV = ELECTRON_RUN_AS_NODE/w:WT_SESSION::WT_PROFILE_ID
 # makefile (from 'Makefile', line 18)
@@ -38,6 +40,10 @@ _ = /mnt/c/Users/uluqmmo/AppData/Local/Programs/Microsoft VS Code/bin/code
 LOCALBIN = $(shell pwd)/bin
 # makefile (from 'Makefile', line 1)
 MAKEFILE_LIST :=  Makefile
+# environment
+AWSRUNAS_PROFILE = gpt-baybridge-nonprod
+# environment
+AWS_SECURITY_TOKEN = IQoJb3JpZ2luX2VjEGEaCXVzLWVhc3QtMSJGMEQCIFjWmSrW696eoNV7zUj2ynsjoW6Z98lgshg7iIVMc2hjAiB2m3MZXsNIFFMxNuGWYdlxJtDiQRk2xhoNedNKwXp+VSqYAwi6//////////8BEAQaDDA5OTc4Njk0MDA2MSIMwUZYvAG8rlEt9yCrKuwCqDDkddcuRjjNQN0byMbWn4GpW88EUVc6jjetfh67xcnuAJBt3cv2as87rMrM6IG0S9BfajSALEYDLUR9CH/PXWqf7ml9sl6LqJxKDIjlgkn/tRTeFeqSIkKuoMyXHbymUDqLTwKpGKq8QRDiXLhZ0x6JeoaxxFKXhcr8UV/v2zAfB9tc1hOsD29ohpPZ0yrsDmYE0PQXLFmZVYjBzy/kZS/wxR42vPiZ29WMnuMf7dic5Z4G4j597G9+XvbfUomW6tYR7cs0Kbt5Bwaq/WhJXyO5FjkVjBN4SUflZ7lXrvt35nNH9nxlL3DQ2ILCD0hWeSZrTNYCKCG1Xah7Bor0ky3NSnZgg0BdJZ6PW/eUaFfw4Z3GVKylDxKEBHZTblEWtwXnj4VNNN6JNWBHFx7r0yrGU7rPgKncjcNSuK2jqJqM4JdsF3KFMZstPSRqKaMDZSD/QIIoNKrIdVAz2bPJ2LNs1Umbu3iYo0qP9zCJp7OXBjqbAXG4oqlJn5jNekCHlKcBDJ2WF5q0ZGBXY/pGLBkLejhyoPj0ITPmuBPN2KUFU3pQtzsPGkuIP133fViin4YRAeoHasXzfQFg2yGpRno55LWKhlMqP0UGLnsjQ7CsHUgmlevrjAY+O+mjY+DalJasvbJz0UBdHQ3jAqdY6Cz1y7y5M1dG7zSdq2OG6xkfWHgr5oBhDJFFUpk64HKV
 # 'override' directive
 GNUMAKEFLAGS := 
 # environment
@@ -45,17 +51,21 @@ VSCODE_AMD_ENTRYPOINT = vs/workbench/api/node/extensionHostProcess
 # environment
 GITLAB_API_TOKEN = eXoQe3rX1nNs-CHffyy-
 # environment
+AWS_DEFAULT_REGION = us-east-1
+# environment
 VSCODE_CWD = /mnt/c/Users/uluqmmo/AppData/Local/Programs/Microsoft VS Code
 # environment
 GOPROXY = https://proxy.golang.org,direct
 # default
 MAKE_HOST := x86_64-pc-linux-gnu
 # environment
-PATH = /usr/local/go/bin:/home/uluqmmo/.vscode-server/bin/3b889b090b5ad5793f524b5d1d39fda662b96a2a/bin/remote-cli:/home/uluqmmo/.nvm/versions/node/v14.16.0/bin:/home/uluqmmo/bin:/home/uluqmmo/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib:/mnt/c/Program Files (x86)/Common Files/Oracle/Java/javapath:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files/PuTTY/:/mnt/c/HashiCorp/Vagrant/bin:/mnt/c/Program Files/Go/bin:/mnt/c/Program Files/Docker/Docker/resources/bin:/mnt/c/ProgramData/DockerDesktop/version-bin:/mnt/c/Users/uluqmmo/AppData/Local/Microsoft/WindowsApps:/mnt/c/Users/uluqmmo/AppData/Local/GitHubDesktop/bin:/mnt/c/Users/uluqmmo/AppData/Local/Programs/Git/cmd:/mnt/c/Program Files/JetBrains/GoLand 2021.2.3/bin:/mnt/c/Users/uluqmmo/go/bin:/mnt/c/Users/uluqmmo/AppData/Local/Programs/Microsoft VS Code/bin:/home/uluqmmo/go/bin:/home/uluqmmo/.arkade/bin/:/home/uluqmmo/.local/bin:/home/uluqmmo/bin:/home/uluqmmo/.fzf/bin
+PATH = /usr/local/go/bin:/home/uluqmmo/.vscode-server/bin/da76f93349a72022ca4670c1b84860304616aaa2/bin/remote-cli:/home/uluqmmo/.nvm/versions/node/v14.16.0/bin:/home/uluqmmo/bin:/home/uluqmmo/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib:/mnt/c/Program Files (x86)/Common Files/Oracle/Java/javapath:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files/PuTTY/:/mnt/c/HashiCorp/Vagrant/bin:/mnt/c/Program Files/Go/bin:/mnt/c/Program Files/Docker/Docker/resources/bin:/mnt/c/ProgramData/DockerDesktop/version-bin:/mnt/c/Users/uluqmmo/AppData/Local/Microsoft/WindowsApps:/mnt/c/Users/uluqmmo/AppData/Local/GitHubDesktop/bin:/mnt/c/Users/uluqmmo/AppData/Local/Programs/Git/cmd:/mnt/c/Program Files/JetBrains/GoLand 2021.2.3/bin:/mnt/c/Users/uluqmmo/go/bin:/mnt/c/Users/uluqmmo/AppData/Local/Programs/Microsoft VS Code/bin:/home/uluqmmo/go/bin:/home/uluqmmo/.arkade/bin/:/home/uluqmmo/.local/bin:/home/uluqmmo/bin:/home/uluqmmo/.fzf/bin
 # makefile (from 'Makefile', line 119)
 KUSTOMIZE_INSTALL_SCRIPT = "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 # environment
 LSCOLORS = Gxfxcxdxbxegedabagacad
+# environment
+LC_ALL = C
 # environment
 GOPATH = /home/uluqmmo/go
 # environment
@@ -63,7 +73,7 @@ NVM_BIN = /home/uluqmmo/.nvm/versions/node/v14.16.0/bin
 # environment
 ELECTRON_RUN_AS_NODE = 1
 # environment
-VSCODE_IPC_HOOK_CLI = /tmp/vscode-ipc-0e23811c-2cf5-49f0-9816-fc9fe5179c40.sock
+VSCODE_IPC_HOOK_CLI = /tmp/vscode-ipc-c47e0341-c001-401d-b64a-6ecfa59ab414.sock
 # default
 .FEATURES := target-specific order-only second-expansion else-if shortest-stem undefine oneshell archives jobserver output-sync check-symlink load
 # makefile (from 'Makefile', line 112)
@@ -79,9 +89,9 @@ PWD = /home/uluqmmo/personal/eventsrunner
 # default
 .LOADED := 
 # environment
-WSL_INTEROP = /run/WSL/11_interop
+WSL_INTEROP = /run/WSL/7569_interop
 # environment
-WT_SESSION = 6b11a65c-81f9-49da-bf63-73b47e3cccc1
+WT_SESSION = af3f270c-99e1-491a-ae07-3df99fc8d5e0
 # environment
 GOMODCACHE = /home/uluqmmo/go/pkg/mod
 # environment
@@ -134,6 +144,8 @@ KUSTOMIZE = $(LOCALBIN)/kustomize
 *F = $(notdir $*)
 # makefile (from 'Makefile', line 3)
 IMG = controller:latest
+# environment
+export = 
 # makefile (from 'Makefile', line 117)
 CONTROLLER_TOOLS_VERSION = v0.9.0
 # makefile
@@ -146,6 +158,8 @@ MFLAGS = -pqrR
 NVM_DIR = /home/uluqmmo/.nvm
 # makefile (from 'Makefile', line 116)
 KUSTOMIZE_VERSION = v3.8.7
+# environment
+AWS_SESSION_TOKEN = IQoJb3JpZ2luX2VjEGEaCXVzLWVhc3QtMSJGMEQCIFjWmSrW696eoNV7zUj2ynsjoW6Z98lgshg7iIVMc2hjAiB2m3MZXsNIFFMxNuGWYdlxJtDiQRk2xhoNedNKwXp+VSqYAwi6//////////8BEAQaDDA5OTc4Njk0MDA2MSIMwUZYvAG8rlEt9yCrKuwCqDDkddcuRjjNQN0byMbWn4GpW88EUVc6jjetfh67xcnuAJBt3cv2as87rMrM6IG0S9BfajSALEYDLUR9CH/PXWqf7ml9sl6LqJxKDIjlgkn/tRTeFeqSIkKuoMyXHbymUDqLTwKpGKq8QRDiXLhZ0x6JeoaxxFKXhcr8UV/v2zAfB9tc1hOsD29ohpPZ0yrsDmYE0PQXLFmZVYjBzy/kZS/wxR42vPiZ29WMnuMf7dic5Z4G4j597G9+XvbfUomW6tYR7cs0Kbt5Bwaq/WhJXyO5FjkVjBN4SUflZ7lXrvt35nNH9nxlL3DQ2ILCD0hWeSZrTNYCKCG1Xah7Bor0ky3NSnZgg0BdJZ6PW/eUaFfw4Z3GVKylDxKEBHZTblEWtwXnj4VNNN6JNWBHFx7r0yrGU7rPgKncjcNSuK2jqJqM4JdsF3KFMZstPSRqKaMDZSD/QIIoNKrIdVAz2bPJ2LNs1Umbu3iYo0qP9zCJp7OXBjqbAXG4oqlJn5jNekCHlKcBDJ2WF5q0ZGBXY/pGLBkLejhyoPj0ITPmuBPN2KUFU3pQtzsPGkuIP133fViin4YRAeoHasXzfQFg2yGpRno55LWKhlMqP0UGLnsjQ7CsHUgmlevrjAY+O+mjY+DalJasvbJz0UBdHQ3jAqdY6Cz1y7y5M1dG7zSdq2OG6xkfWHgr5oBhDJFFUpk64HKV
 # automatic
 +D = $(patsubst %/,%,$(dir $+))
 # environment
@@ -167,7 +181,7 @@ MAKEFILES :=
 # environment
 PAGER = less
 # environment
-LC_ALL = C
+AWS_ACCESS_KEY_ID = ASIAROO6D32OXCSCUKG6
 # environment
 HOSTTYPE = x86_64
 # automatic
@@ -176,6 +190,8 @@ HOSTTYPE = x86_64
 SUFFIXES := 
 # default
 .INCLUDE_DIRS = /usr/include /usr/local/include /usr/include
+# environment
+AWS_REGION = us-east-1
 # default
 .RECIPEPREFIX := 
 # makefile (from 'Makefile', line 83)
@@ -189,7 +205,7 @@ ENVTEST_K8S_VERSION = 1.24.1
 # environment
 WSL_DISTRO_NAME = Ubuntu-20.04
 # variable set hash-table stats:
-# Load=89/1024=9%, Rehash=0, Collisions=8/192=4%
+# Load=97/1024=9%, Rehash=0, Collisions=9/200=4%
 
 # Pattern-specific Variable Values
 
@@ -197,7 +213,7 @@ WSL_DISTRO_NAME = Ubuntu-20.04
 
 # Directories
 
-# . (device 2096, inode 175331): 19 files, no impossibilities.
+# . (device 2064, inode 175331): 19 files, no impossibilities.
 
 # 19 files, no impossibilities in 1 directories.
 
@@ -260,6 +276,7 @@ uninstall: manifests kustomize
 # Not a target:
 Makefile:
 #  Implicit rule search has been done.
+ 
 #  Last modified 2022-07-31 22:11:31.691145
 #  File has been updated.
 #  Successfully updated.
@@ -276,7 +293,6 @@ build: generate fmt vet
 #  Phony target (prerequisite of .PHONY).
 #  Implicit rule search has not been done.
 #  File does not exist.
- 
 #  File has been updated.
 #  Needs to be updated (-q is set).
 # variable set hash-table stats:
@@ -441,12 +457,12 @@ install: manifests kustomize
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 46 / storage = 542 B / avg = 11 B
-# current buf: size = 8162 B / used = 542 B / count = 46 / avg = 11 B
+# strcache buffers: 1 (0) / strings = 46 / storage = 539 B / avg = 11 B
+# current buf: size = 8162 B / used = 539 B / count = 46 / avg = 11 B
 
 # strcache performance: lookups = 155 / hit rate = 70%
 # hash-table stats:
 # Load=46/8192=1%, Rehash=0, Collisions=1/155=1%
-# Finished Make data base on Wed Aug  3 23:28:19 2022
+# Finished Make data base on Fri Aug  5 19:18:06 2022
 
  

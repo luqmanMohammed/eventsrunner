@@ -32,7 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/luqmanMohammed/eventsrunner/runner"
+	"github.com/luqmanMohammed/eventsrunner/internal/handlers"
+	"github.com/luqmanMohammed/eventsrunner/internal/index"
 
 	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/api/v1alpha1"
 	"github.com/luqmanMohammed/eventsrunner/controllers"
@@ -92,21 +93,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	runnerManger := runner.Manager{
-		Client:                mgr.GetClient(),
-		RunnerNamespace:       "eventsrunner",
-		RunnerIdentifierLabel: "eventsrunner.io/identifier=eventsrunner",
-	}
+	cHandler := handlers.NewCompositeHandler(
+		"eventsrunner",
+		"eventsrunner",
+		mgr.GetClient(),
+	)
 
-	if err := runner.RegisterRunnerBindingIndex(context.Background(), mgr); err != nil {
+	if err := index.RegisterRunnerBindingIndex(context.Background(), mgr); err != nil {
 		setupLog.Error(err, "unable to register runner binding index")
 		os.Exit(1)
 	}
 
 	if err = (&controllers.EventReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		RunnerManager: runnerManger,
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		CHandler: cHandler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Event")
 		os.Exit(1)
