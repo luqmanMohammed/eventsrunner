@@ -58,6 +58,8 @@ const (
 	EventStateFailed EventState = "failure"
 )
 
+// +kubebuilder:validation:Enum={completed,failure}
+
 // EventState represents the current state of the event.
 type EventState string
 
