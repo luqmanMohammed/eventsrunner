@@ -23,12 +23,12 @@ import (
 )
 
 const (
-	// AddedEventType is the type of event when a resource is added.
-	AddedEventType EventType = "added"
-	// ModifiedEventType is the type of event when a resource is updated.
-	ModifiedEventType EventType = "modified"
-	// DeletedEventType is the type of event when a resource is deleted.
-	DeletedEventType EventType = "deleted"
+	// EventTypeAdded is the type of event when a resource is added.
+	EventTypeAdded EventType = "added"
+	// EventTypeModified is the type of event when a resource is updated.
+	EventTypeModified EventType = "modified"
+	// EventTypeDeleted is the type of event when a resource is deleted.
+	EventTypeDeleted EventType = "deleted"
 )
 
 // +kubebuilder:validation:Enum={added,modified,deleted}
@@ -52,18 +52,13 @@ type EventSpec struct {
 }
 
 const (
-	// WaitingEventState is the state of an event waiting for a runner to be assigned.
-	WaitingEventState EventState = "waiting"
-	// RunningEventState is the state of a running event.
-	RunningEventState EventState = "running"
-	// CompletedEventState is the state of a completed event.
-	CompletedEventState EventState = "completed"
-	// FailedEventState is the state of a failed event.
-	FailedEventState EventState = "failure"
+	// EventStateCompleted is the state of the event when it is completed successfully.
+	EventStateCompleted EventState = "completed"
+	// EventStateFailed is the state of a failed event.
+	EventStateFailed EventState = "failure"
 )
 
 // EventState represents the current state of the event.
-// TODO: Does this break best practice?
 type EventState string
 
 // EventStatus defines the observed state of Event
