@@ -35,6 +35,8 @@ spec:
           spec:
             description: EventSpec defines the desired state of Event
             properties:
+              dependsOn:
+                type: string
               eventData:
                 description: EventData is a JSON object containing the event data.
                 type: string
@@ -55,15 +57,13 @@ spec:
           status:
             description: EventStatus defines the observed state of Event
             properties:
-              dependsOn:
+              message:
                 type: string
-              jobName:
-                type: string
-              retries:
-                type: integer
               state:
-                description: 'EventState represents the current state of the event.
-                  TODO: Does this break best practice?'
+                description: EventState represents the current state of the event.
+                enum:
+                - completed
+                - failure
                 type: string
             type: object
         type: object
