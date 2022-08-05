@@ -99,8 +99,8 @@ func main() {
 		mgr.GetClient(),
 	)
 
-	if err := index.RegisterRunnerBindingIndex(context.Background(), mgr); err != nil {
-		setupLog.Error(err, "unable to register runner binding index")
+	if err := index.RegisterIndexes(context.Background(), mgr); err != nil {
+		setupLog.Error(err, "unable to register indexes")
 		os.Exit(1)
 	}
 
