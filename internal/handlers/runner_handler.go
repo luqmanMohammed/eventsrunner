@@ -27,7 +27,7 @@ func (m RunnerManager) ResolveRunner(ctx context.Context, event *eventsrunneriov
 	// Get the runner binding for the event
 	logger := log.FromContext(ctx)
 	var runnerBindingList eventsrunneriov1alpha1.RunnerBindingList
-	if err := m.List(ctx, &runnerBindingList, client.MatchingFields{index.RunnerBindingRulesIndex: event.Spec.RuleID}, client.InNamespace(m.RunnerNamespace), client.HasLabels{
+	if err := m.List(ctx, &runnerBindingList, client.MatchingFields{index.RunnerBindingRulesIDIndex: event.Spec.RuleID}, client.InNamespace(m.RunnerNamespace), client.HasLabels{
 		m.RunnerIdentifierLabel,
 	}); err != nil {
 		logger.Error(err, "Failed to list runner bindings")
