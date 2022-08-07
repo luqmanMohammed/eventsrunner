@@ -14,9 +14,9 @@ import (
 // Handles finding the runner for a given event and getting the runner for a given name.
 // It is exposed via the CompositeHelper.
 type runnerHelper struct {
-	client                client.Client
-	runnerNamespace       string
-	runnerIdentifierLabel string
+	client          client.Client
+	runnerNamespace string
+	controllerLabel string
 }
 
 var (
@@ -30,7 +30,7 @@ func (m runnerHelper) ResolveRunner(ctx context.Context, event *eventsrunneriov1
 	logger := log.FromContext(ctx)
 	var runnerBindingList eventsrunneriov1alpha1.RunnerBindingList
 	if err := m.client.List(ctx, &runnerBindingList, client.MatchingFields{index.RunnerBindingRulesIDIndex: event.Spec.RuleID}, client.InNamespace(m.runnerNamespace), client.HasLabels{
-		m.runnerIdentifierLabel,
+		m.controllerLabel,
 	}); err != nil {
 		logger.Error(err, "Failed to list runner bindings")
 		return "", err

@@ -11,12 +11,12 @@ type CompositeHelper struct {
 }
 
 // NewCompositeHelper returns a new composite handler
-func NewCompositeHelper(controllerName, controllerNamespace string, client client.Client) CompositeHelper {
+func NewCompositeHelper(controllerLabel, controllerNamespace string, client client.Client) CompositeHelper {
 	return CompositeHelper{
 		runnerHelper: runnerHelper{
-			client:                client,
-			runnerNamespace:       controllerNamespace,
-			runnerIdentifierLabel: controllerNamespace,
+			client:          client,
+			runnerNamespace: controllerNamespace,
+			controllerLabel: controllerLabel,
 		},
 		eventsHelper: eventsHelper{
 			client:              client,
