@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/luqmanMohammed/eventsrunner/internal/handlers"
+	"github.com/luqmanMohammed/eventsrunner/internal/helpers"
 	"github.com/luqmanMohammed/eventsrunner/internal/index"
 
 	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/api/v1alpha1"
@@ -93,7 +93,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cHandler := handlers.NewCompositeHandler(
+	cHandler := helpers.NewCompositeHelper(
 		"eventsrunner",
 		"eventsrunner",
 		mgr.GetClient(),

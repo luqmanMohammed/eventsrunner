@@ -1,4 +1,4 @@
-package handlers
+package helpers
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type eventHandler struct {
+type eventHelper struct {
 	client.Client
 	controllerNamespace string
 }
@@ -23,7 +23,7 @@ func filterEventsIfCreatedAfter(d []eventsrunneriov1alpha1.Event, s []eventsrunn
 	}
 }
 
-func (eh eventHandler) FindEventDependsOn(ctx context.Context, event *eventsrunneriov1alpha1.Event) (*eventsrunneriov1alpha1.Event, error) {
+func (eh eventHelper) FindEventDependsOn(ctx context.Context, event *eventsrunneriov1alpha1.Event) (*eventsrunneriov1alpha1.Event, error) {
 	var eventsList eventsrunneriov1alpha1.EventList
 	if err := eh.List(
 		ctx,
