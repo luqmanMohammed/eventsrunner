@@ -18,7 +18,7 @@ limitations under the License.
 
 New Event
 -> Update RunnerName if not set
--> Check if has any depencies
+-> Check if has any depen
 -> If no dependencies, shedule a job
 -> If dependencies, wait for them to be completed
 */

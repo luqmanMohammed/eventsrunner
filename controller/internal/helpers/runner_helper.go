@@ -10,7 +10,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// runnerHelper is responsible for selecting correct runners for a given event
+// runnerHelper is contains helper functions to handle runner objects and operations.
+// Handles finding the runner for a given event and getting the runner for a given name.
+// It is exposed via the CompositeHelper.
 type runnerHelper struct {
 	client                client.Client
 	runnerNamespace       string
