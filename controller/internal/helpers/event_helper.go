@@ -4,8 +4,8 @@ import (
 	"context"
 	"sort"
 
-	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/api/v1alpha1"
-	"github.com/luqmanMohammed/eventsrunner/internal/index"
+	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/controller/api/v1alpha1"
+	"github.com/luqmanMohammed/eventsrunner/controller/internal/index"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

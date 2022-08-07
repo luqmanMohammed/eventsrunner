@@ -1,4 +1,4 @@
-module github.com/luqmanMohammed/eventsrunner
+module github.com/luqmanMohammed/eventsrunner/controller
 
 go 1.18
 

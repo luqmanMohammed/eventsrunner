@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/api/v1alpha1"
-	"github.com/luqmanMohammed/eventsrunner/internal/index"
+	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/controller/api/v1alpha1"
+	"github.com/luqmanMohammed/eventsrunner/controller/internal/index"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
