@@ -3,7 +3,7 @@ package index
 import (
 	"context"
 
-	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/api/v1alpha1"
+	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/controller/api/v1alpha1"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlman "sigs.k8s.io/controller-runtime/pkg/manager"
 )

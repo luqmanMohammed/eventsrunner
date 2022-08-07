@@ -32,11 +32,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/luqmanMohammed/eventsrunner/internal/handlers"
-	"github.com/luqmanMohammed/eventsrunner/internal/index"
+	"github.com/luqmanMohammed/eventsrunner/controller/internal/helpers"
+	"github.com/luqmanMohammed/eventsrunner/controller/internal/index"
 
-	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/api/v1alpha1"
-	"github.com/luqmanMohammed/eventsrunner/controllers"
+	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/controller/api/v1alpha1"
+	"github.com/luqmanMohammed/eventsrunner/controller/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -93,7 +93,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cHandler := handlers.NewCompositeHandler(
+	compHelper := helpers.NewCompositeHelper(
 		"eventsrunner",
 		"eventsrunner",
 		mgr.GetClient(),
@@ -105,9 +105,9 @@ func main() {
 	}
 
 	if err = (&controllers.EventReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		CHandler: cHandler,
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		CompositeHelper: compHelper,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Event")
 		os.Exit(1)

@@ -18,7 +18,7 @@ limitations under the License.
 
 New Event
 -> Update RunnerName if not set
--> Check if has any depencies
+-> Check if has any depen
 -> If no dependencies, shedule a job
 -> If dependencies, wait for them to be completed
 */
@@ -36,8 +36,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-logr/logr"
-	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/api/v1alpha1"
-	"github.com/luqmanMohammed/eventsrunner/internal/handlers"
+	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/controller/api/v1alpha1"
+	"github.com/luqmanMohammed/eventsrunner/controller/internal/helpers"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,8 +46,8 @@ import (
 // EventReconciler reconciles a Event object
 type EventReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	CHandler handlers.CompositeHandler
+	Scheme          *runtime.Scheme
+	CompositeHelper helpers.CompositeHelper
 }
 
 func (r *EventReconciler) updateFailedEvent(ctx context.Context, logger logr.Logger, event *eventsrunneriov1alpha1.Event, message string) {
@@ -80,7 +80,7 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	// Check if runner name is set, if not, set it
 	if event.Spec.RunnerName == "" {
 		logger.V(1).Info("Event has no runner name")
-		runnerName, err := r.CHandler.ResolveRunner(ctx, &event)
+		runnerName, err := r.CompositeHelper.ResolveRunner(ctx, &event)
 		if err != nil {
 			logger.Error(err, "unable to resolve runner")
 			r.updateFailedEvent(ctx, logger, &event, fmt.Sprintf("unable to resolve runner: %s", err.Error()))
@@ -98,7 +98,7 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	var job batchv1.Job
 	if err := r.Get(ctx, client.ObjectKey{Namespace: event.Namespace, Name: event.Name}, &job); err != nil {
 		if event.Spec.DependsOn == "" {
-			runner, err := r.CHandler.GetRunner(ctx, event.Spec.RunnerName)
+			runner, err := r.CompositeHelper.GetRunner(ctx, event.Spec.RunnerName)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
