@@ -3,6 +3,7 @@ package helpers_test
 import (
 	"context"
 	"path/filepath"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -37,61 +38,7 @@ const (
 	labelValue    = "helper-test"
 )
 
-var (
-	testRunner *eventsrunneriov1alpha1.Runner = &eventsrunneriov1alpha1.Runner{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-runner",
-			Namespace: testNamespace,
-			Labels: map[string]string{
-				labelKey: labelValue,
-			},
-		},
-		Spec: eventsrunneriov1alpha1.RunnerSpec(corev1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-runner",
-				Namespace: testNamespace,
-				Labels: map[string]string{
-					labelKey: labelValue,
-				},
-			},
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Name:  "test-runner",
-						Image: "busybox",
-					},
-				},
-			},
-		}),
-	}
-	testRunnerBinding *eventsrunneriov1alpha1.RunnerBinding = &eventsrunneriov1alpha1.RunnerBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-runner-binding",
-			Namespace: testNamespace,
-			Labels: map[string]string{
-				labelKey: labelValue,
-			},
-		},
-		RunnerName: "test-runner",
-		Rules: []string{
-			"test-rule",
-		},
-	}
-	testEvent *eventsrunneriov1alpha1.Event = &eventsrunneriov1alpha1.Event{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-event",
-			Namespace: testNamespace,
-			Labels: map[string]string{
-				labelKey: labelValue,
-			},
-		},
-		Spec: eventsrunneriov1alpha1.EventSpec{
-			RuleID:     "test-rule",
-			ResourceID: "test-resource",
-			EventType:  eventsrunneriov1alpha1.EventTypeAdded,
-		},
-	}
-)
+var ()
 
 var cfg *rest.Config
 var k8sClient client.Client
@@ -142,13 +89,15 @@ var _ = BeforeSuite(func() {
 	var mgrContext context.Context
 	mgrContext, cancelFunc = context.WithCancel(context.Background())
 
+	err = index.RegisterIndexes(context.Background(), mgr)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		err := mgr.Start(mgrContext)
 		Expect(err).NotTo(HaveOccurred())
 	}()
 
-	err = index.RegisterIndexes(context.Background(), mgr)
-	Expect(err).NotTo(HaveOccurred())
+	time.Sleep(2 * time.Second)
 
 	k8sClient = mgr.GetClient()
 	Expect(k8sClient).NotTo(BeNil())
@@ -167,18 +116,100 @@ var _ = AfterSuite(func() {
 
 var _ = Describe("CompositeHelper", func() {
 	Describe("Job Helper", func() {
-		Describe("ResolveRunner", func() {
-			It("Setting up objects", func() {
+		testRunner := &eventsrunneriov1alpha1.Runner{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-runner",
+				Namespace: testNamespace,
+				Labels: map[string]string{
+					labelKey: labelValue,
+				},
+			},
+			Spec: eventsrunneriov1alpha1.RunnerSpec(corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-runner",
+					Namespace: testNamespace,
+					Labels: map[string]string{
+						labelKey: labelValue,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "test-runner",
+							Image: "busybox",
+						},
+					},
+				},
+			}),
+		}
+		testRunnerBinding := &eventsrunneriov1alpha1.RunnerBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-runner-binding",
+				Namespace: testNamespace,
+				Labels: map[string]string{
+					labelKey: labelValue,
+				},
+			},
+			RunnerName: "test-runner",
+			Rules: []string{
+				"test-rule",
+			},
+		}
+		testEvent := &eventsrunneriov1alpha1.Event{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-event",
+				Namespace: testNamespace,
+				Labels: map[string]string{
+					labelKey: labelValue,
+				},
+			},
+			Spec: eventsrunneriov1alpha1.EventSpec{
+				RuleID:     "test-rule",
+				ResourceID: "test-resource",
+				EventType:  eventsrunneriov1alpha1.EventTypeAdded,
+			},
+		}
+
+		When("Resolving Runner", func() {
+			It("Ideal workflow", func() {
 				err := k8sClient.Create(context.Background(), testRunner)
 				Expect(err).NotTo(HaveOccurred())
 				err = k8sClient.Create(context.Background(), testRunnerBinding)
 				Expect(err).NotTo(HaveOccurred())
-			})
-			It("Resolve Runner", func() {
 				runnerName, err := compHelper.ResolveRunner(context.Background(), testEvent)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(runnerName).NotTo(BeEmpty())
 				Expect(runnerName).To(Equal("test-runner"))
+
+			})
+			It("Runner binding not found", func() {
+				testEvent.Spec.RuleID = "test-rule-2"
+				runnerName, err := compHelper.ResolveRunner(context.Background(), testEvent)
+				Expect(err).To(HaveOccurred())
+				Expect(runnerName).To(BeEmpty())
+			})
+			It("Multiple Runner bindings found", func() {
+				testRunnerBinding.ObjectMeta.Name = "test-runner-binding-2"
+				testRunnerBinding.ResourceVersion = ""
+				testEvent.Spec.RuleID = "test-rule"
+				err := k8sClient.Create(context.Background(), testRunnerBinding)
+				Expect(err).NotTo(HaveOccurred())
+				runnerName, err := compHelper.ResolveRunner(context.Background(), testEvent)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(runnerName).NotTo(BeEmpty())
+			})
+		})
+		When("Getting a resolved Runner", func() {
+			It("Ideal workflow", func() {
+				runner, err := compHelper.GetRunner(context.Background(), "test-runner")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(runner).NotTo(BeNil())
+				Expect(runner.Name).To(Equal("test-runner"))
+			})
+			It("Runner not found", func() {
+				runner, err := compHelper.GetRunner(context.Background(), "test-runner-2")
+				Expect(err).To(HaveOccurred())
+				Expect(runner).To(BeNil())
 			})
 		})
 	})
