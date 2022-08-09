@@ -2,6 +2,7 @@ package helpers_test
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"time"
 
@@ -72,17 +73,6 @@ var _ = BeforeSuite(func() {
 		Port:             9443,
 		LeaderElection:   false,
 		LeaderElectionID: "322188aa.eventsrunner.io",
-		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
-		// when the Manager ends. This requires the binary to immediately end when the
-		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
-		// speeds up voluntary leader transitions as the new leader don't have to wait
-		// LeaseDuration time first.
-		//
-		// In the default scaffold provided, the program ends immediately after
-		// the manager stops, so would be fine to enable this option. However,
-		// if you are doing or is intended to do any operation such as perform cleanups
-		// after the manager stops then its usage might be unsafe.
-		// LeaderElectionReleaseOnCancel: true,
 	})
 	Expect(err).NotTo(HaveOccurred())
 
@@ -210,6 +200,42 @@ var _ = Describe("CompositeHelper", func() {
 				runner, err := compHelper.GetRunner(context.Background(), "test-runner-2")
 				Expect(err).To(HaveOccurred())
 				Expect(runner).To(BeNil())
+			})
+		})
+	})
+
+	Describe("Events Helper", func() {
+		testEvent := &eventsrunneriov1alpha1.Event{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-event",
+				Namespace: testNamespace,
+				Labels: map[string]string{
+					labelKey: labelValue,
+				},
+			},
+			Spec: eventsrunneriov1alpha1.EventSpec{
+				RuleID:     "test-rule",
+				ResourceID: "test-resource",
+				EventType:  eventsrunneriov1alpha1.EventTypeAdded,
+			},
+		}
+
+		When("Finds if an event depends on any other event", func() {
+			It("Ideal workflow", func() {
+				for i := 0; i < 10; i++ {
+					testEvent.ObjectMeta.Name = fmt.Sprintf("test-event-%d", i)
+					testEvent.ResourceVersion = ""
+					testEvent.CreationTimestamp = metav1.Time{}
+					err := k8sClient.Create(context.Background(), testEvent)
+					Expect(err).NotTo(HaveOccurred())
+				}
+
+				time.Sleep(time.Second)
+
+				dependsOn, err := compHelper.FindEventDependsOn(context.Background(), testEvent)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(dependsOn).NotTo(BeNil())
+				fmt.Println(dependsOn.Name)
 			})
 		})
 	})

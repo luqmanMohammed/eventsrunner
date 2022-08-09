@@ -2,12 +2,12 @@ package helpers
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
 	logr "github.com/go-logr/logr"
 	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/controller/api/v1alpha1"
 	"github.com/luqmanMohammed/eventsrunner/controller/internal/index"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -19,13 +19,18 @@ type eventsHelper struct {
 	controllerNamespace string
 }
 
-// filterEventsIfCreatedAfter filters events if created after the given timestamp.
-func filterEventsIfCreatedAfter(d []eventsrunneriov1alpha1.Event, s []eventsrunneriov1alpha1.Event, createdAfter *metav1.Time) {
+// filterEvents filters events if created after the given timestamp.
+func filterEvents(s []eventsrunneriov1alpha1.Event, checkEvent *eventsrunneriov1alpha1.Event) []eventsrunneriov1alpha1.Event {
+	d := make([]eventsrunneriov1alpha1.Event, 0, len(s))
 	for _, obj := range s {
-		if obj.CreationTimestamp.Before(createdAfter) {
+		if checkEvent.Namespace == obj.Namespace && checkEvent.Name == obj.Name {
+			continue
+		}
+		if obj.CreationTimestamp.Before(&checkEvent.CreationTimestamp) || obj.CreationTimestamp.Equal(&checkEvent.CreationTimestamp) {
 			d = append(d, obj)
 		}
 	}
+	return d
 }
 
 /*	FindEventDependsOn returns the event that the specified event depends on.
@@ -51,12 +56,8 @@ func (eh eventsHelper) FindEventDependsOn(ctx context.Context, event *eventsrunn
 	if len(eventsList.Items) == 0 {
 		return nil, nil
 	}
-	destEvents := make([]eventsrunneriov1alpha1.Event, 0, len(eventsList.Items))
-	filterEventsIfCreatedAfter(
-		destEvents,
-		eventsList.Items,
-		&event.CreationTimestamp,
-	)
+	fmt.Printf("%+v\n", eventsList.Items)
+	destEvents := filterEvents(eventsList.Items, event)
 	if len(destEvents) == 1 {
 		return &destEvents[0], nil
 	}
@@ -66,6 +67,7 @@ func (eh eventsHelper) FindEventDependsOn(ctx context.Context, event *eventsrunn
 			return destEvents[i].CreationTimestamp.Before(&destEvents[j].CreationTimestamp)
 		},
 	)
+	fmt.Printf("%+v\n", destEvents)
 	return &destEvents[(len(destEvents) - 1):][0], nil
 }
 
