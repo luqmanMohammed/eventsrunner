@@ -29,25 +29,29 @@ type RulesOptsSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of RulesOpts. Edit rulesopts_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
-}
-
-// RulesOptsStatus defines the observed state of RulesOpts
-type RulesOptsStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// +optional
+	Concurrency *int `json:"concurrency,omitempty"`
+	// +optional
+	MaintainExecutionOrder *bool `json:"maintainExecutionOrder,omitempty"`
+	// +optional
+	RetryCount *int `json:"retryCount,omitempty"`
+	// +optional
+	RetryInterval *metav1.Time `json:"retryInterval,omitempty"`
+	// +optional
+	RetainFailedEventsCount *int `json:"retainFailedEventsCount,omitempty"`
+	// +optional
+	RetainSuccessfulEventsCount *int `json:"retainSuccessfulEventsCount,omitempty"`
 }
 
 //+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
 
 // RulesOpts is the Schema for the rulesopts API
 type RulesOpts struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   RulesOptsSpec   `json:"spec,omitempty"`
-	Status RulesOptsStatus `json:"status,omitempty"`
+	Rules []string      `json:"rules,omitempty"`
+	Spec  RulesOptsSpec `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true

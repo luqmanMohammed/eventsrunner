@@ -19,5 +19,8 @@ func RegisterIndexes(ctx context.Context, mgr ctrlman.Manager) error {
 	if err := registerRunnerBindingRulesIDIndex(ctx, mgr); err != nil {
 		return err
 	}
+	if err := registerRulesOptsRulesIndex(ctx, mgr); err != nil {
+		return err
+	}
 	return nil
 }

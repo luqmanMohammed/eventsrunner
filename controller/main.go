@@ -94,7 +94,7 @@ func main() {
 	}
 
 	compHelper := helpers.NewCompositeHelper(
-		"eventsrunner",
+		"eventsrunner.io/identifier=eventsrunner",
 		"eventsrunner",
 		mgr.GetClient(),
 	)

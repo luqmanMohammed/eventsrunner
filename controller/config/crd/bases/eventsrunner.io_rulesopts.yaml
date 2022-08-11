@@ -32,19 +32,29 @@ spec:
             type: string
           metadata:
             type: object
+          rules:
+            items:
+              type: string
+            type: array
           spec:
             description: RulesOptsSpec defines the desired state of RulesOpts
             properties:
-              foo:
+              concurrency:
                 description: Foo is an example field of RulesOpts. Edit rulesopts_types.go
                   to remove/update
+                type: integer
+              maintainExecutionOrder:
+                type: boolean
+              retainFailedEventsCount:
+                type: integer
+              retainSuccessfulEventsCount:
+                type: integer
+              retryCount:
+                type: integer
+              retryInterval:
+                format: date-time
                 type: string
-            type: object
-          status:
-            description: RulesOptsStatus defines the observed state of RulesOpts
             type: object
         type: object
     served: true
     storage: true
-    subresources:
-      status: {}
