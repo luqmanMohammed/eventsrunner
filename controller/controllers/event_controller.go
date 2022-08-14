@@ -33,7 +33,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/go-logr/logr"
 	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/controller/api/v1alpha1"
@@ -46,8 +48,11 @@ import (
 // EventReconciler reconciles a Event object
 type EventReconciler struct {
 	client.Client
-	Scheme          *runtime.Scheme
-	CompositeHelper helpers.CompositeHelper
+	Scheme               *runtime.Scheme
+	CompositeHelper      helpers.CompositeHelper
+	ControllerNamespace  string
+	ControllerLabelKey   string
+	ControllerLabelValue string
 }
 
 func (r *EventReconciler) updateFailedEvent(ctx context.Context, logger logr.Logger, event *eventsrunneriov1alpha1.Event, message string) {
@@ -134,10 +139,39 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	return ctrl.Result{}, nil
 }
 
+// EventFilter is a predicate that filters events that are not of interest to
+// the controller. Controller will only process events which are in the
+// controller's namespace and have the controller label.
+// Return true if event is of interest to the controller.
+func (r *EventReconciler) EventFilter(obj client.Object) bool {
+	if obj.GetNamespace() != r.ControllerNamespace {
+		return false
+	}
+	labelValue, ok := obj.GetLabels()[r.ControllerLabelKey]
+	if !ok {
+		return false
+	}
+	if labelValue != r.ControllerLabelValue {
+		return false
+	}
+	return true
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *EventReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&eventsrunneriov1alpha1.Event{}).
 		Owns(&batchv1.Job{}).
+		WithEventFilter(predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool {
+				return r.EventFilter(e.Object)
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				return r.EventFilter(e.ObjectNew)
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				return r.EventFilter(e.Object)
+			},
+		}).
 		Complete(r)
 }
