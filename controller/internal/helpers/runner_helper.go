@@ -14,9 +14,9 @@ import (
 // Handles finding the runner for a given event and getting the runner for a given name.
 // It is exposed via the CompositeHelper.
 type runnerHelper struct {
-	client          client.Client
-	runnerNamespace string
-	controllerLabel string
+	client              client.Client
+	listOptions         []client.ListOption
+	controllerNamespace string
 }
 
 var (
@@ -25,13 +25,15 @@ var (
 )
 
 // ResolveRunner returns the runner for the given event
-func (m runnerHelper) ResolveRunner(ctx context.Context, event *eventsrunneriov1alpha1.Event) (string, error) {
+func (rh runnerHelper) ResolveRunner(ctx context.Context, event *eventsrunneriov1alpha1.Event) (string, error) {
 	// Get the runner binding for the event
 	logger := log.FromContext(ctx)
+	rh.listOptions = append(rh.listOptions, client.MatchingFields{index.RunnerBindingRulesIDIndex: event.Spec.RuleID})
 	var runnerBindingList eventsrunneriov1alpha1.RunnerBindingList
-	if err := m.client.List(ctx, &runnerBindingList, client.MatchingFields{index.RunnerBindingRulesIDIndex: event.Spec.RuleID}, client.InNamespace(m.runnerNamespace), client.HasLabels{
-		m.controllerLabel,
-	}); err != nil {
+	if err := rh.client.List(
+		ctx, &runnerBindingList,
+		rh.listOptions...,
+	); err != nil {
 		logger.Error(err, "Failed to list runner bindings")
 		return "", err
 	}
@@ -48,9 +50,9 @@ func (m runnerHelper) ResolveRunner(ctx context.Context, event *eventsrunneriov1
 
 // GetRunner returns the runner for the given name
 // TODO: Handle runner parameter overriding
-func (m runnerHelper) GetRunner(ctx context.Context, runnerName string) (*eventsrunneriov1alpha1.Runner, error) {
+func (rh runnerHelper) GetRunner(ctx context.Context, runnerName string) (*eventsrunneriov1alpha1.Runner, error) {
 	var runner eventsrunneriov1alpha1.Runner
-	if err := m.client.Get(ctx, client.ObjectKey{Name: runnerName, Namespace: m.runnerNamespace}, &runner); err != nil {
+	if err := rh.client.Get(ctx, client.ObjectKey{Name: runnerName, Namespace: rh.controllerNamespace}, &runner); err != nil {
 		return nil, err
 	}
 	return &runner, nil

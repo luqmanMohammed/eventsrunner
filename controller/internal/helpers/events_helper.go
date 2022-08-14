@@ -14,9 +14,9 @@ import (
 // eventsHelper contains helper functions to handle events related operations.
 // These functions are exposed via the CompositeHelper.
 type eventsHelper struct {
-	helperLog           logr.Logger
-	client              client.Client
-	controllerNamespace string
+	helperLog   logr.Logger
+	client      client.Client
+	listOptions []client.ListOption
 }
 
 // filterEvents filters events if created after the given timestamp.
@@ -43,13 +43,13 @@ func filterEvents(s []eventsrunneriov1alpha1.Event, checkEvent *eventsrunneriov1
 */
 func (eh eventsHelper) FindEventDependsOn(ctx context.Context, event *eventsrunneriov1alpha1.Event) (*eventsrunneriov1alpha1.Event, error) {
 	var eventsList eventsrunneriov1alpha1.EventList
+	eh.listOptions = append(
+		eh.listOptions,
+		client.MatchingFields{index.EventDependsOnIndex: event.Name})
 	if err := eh.client.List(
 		ctx,
 		&eventsList,
-		client.MatchingFields{
-			index.EventResourceIDIndex: event.Spec.ResourceID,
-		},
-		client.InNamespace(eh.controllerNamespace),
+		eh.listOptions...,
 	); err != nil {
 		return nil, err
 	}
