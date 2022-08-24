@@ -28,7 +28,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -49,12 +48,11 @@ import (
 // EventReconciler reconciles a Event object
 type EventReconciler struct {
 	client.Client
-	Scheme                      *runtime.Scheme
-	CompositeHelper             helpers.CompositeHelper
-	ControllerNamespace         string
-	ControllerLabelKey          string
-	ControllerLabelValue        string
-	RequeueAfterSysFailDuration time.Duration
+	Scheme               *runtime.Scheme
+	CompositeHelper      helpers.CompositeHelper
+	ControllerNamespace  string
+	ControllerLabelKey   string
+	ControllerLabelValue string
 }
 
 //+kubebuilder:rbac:groups=eventsrunner.io,resources=events,verbs=get;list;watch;create;update;patch;delete

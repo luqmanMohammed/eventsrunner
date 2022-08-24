@@ -105,9 +105,12 @@ func main() {
 	}
 
 	if err = (&controllers.EventReconciler{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
-		CompositeHelper: compHelper,
+		Client:               mgr.GetClient(),
+		Scheme:               mgr.GetScheme(),
+		CompositeHelper:      compHelper,
+		ControllerNamespace:  "eventsrunner",
+		ControllerLabelKey:   "eventsrunner.io/identifier",
+		ControllerLabelValue: "eventsrunner",
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Event")
 		os.Exit(1)
