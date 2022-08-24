@@ -29,15 +29,13 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/go-logr/logr"
 	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/controller/api/v1alpha1"
 	"github.com/luqmanMohammed/eventsrunner/controller/internal/helpers"
 	batchv1 "k8s.io/api/batch/v1"
@@ -48,11 +46,8 @@ import (
 // EventReconciler reconciles a Event object
 type EventReconciler struct {
 	client.Client
-	Scheme               *runtime.Scheme
-	CompositeHelper      helpers.CompositeHelper
-	ControllerNamespace  string
-	ControllerLabelKey   string
-	ControllerLabelValue string
+	Scheme          *runtime.Scheme
+	CompositeHelper helpers.CompositeHelper
 }
 
 func (r *EventReconciler) updateFailedEvent(ctx context.Context, logger logr.Logger, event *eventsrunneriov1alpha1.Event, message string) {
@@ -72,41 +67,88 @@ func (r *EventReconciler) updateFailedEvent(ctx context.Context, logger logr.Log
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.1/pkg/reconcile
 func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+
+	// TODO: Configure retry mechanisum for failed states if required
 	logger := log.FromContext(ctx)
 
 	// Get the Event object from the request.
 	// If the Event object does not exist, assume that is was deleted and ignore.
 	var event eventsrunneriov1alpha1.Event
 	if err := r.Get(ctx, req.NamespacedName, &event); err != nil {
-		logger.V(1).Info("unable to fetch Event")
+		if errors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		logger.V(1).Error(err, "Failed to get error during reconciliation")
 		return ctrl.Result{}, nil
 	}
 
-	// Check if runner name is set, if not, set it
+	updateEventFailedStatus := func(err error, msg string) error {
+		return r.CompositeHelper.UpdateEventStatus(
+			ctx,
+			&event,
+			eventsrunneriov1alpha1.EventStateFailed,
+			fmt.Sprintf("ERROR: %v : %s", err, msg),
+		)
+	}
+
+	// Check if runner name is set, if not, resolve runner and set it
 	if event.Spec.RunnerName == "" {
-		logger.V(1).Info("Event has no runner name")
 		runnerName, err := r.CompositeHelper.ResolveRunner(ctx, &event)
 		if err != nil {
-			logger.Error(err, "unable to resolve runner")
-			r.updateFailedEvent(ctx, logger, &event, fmt.Sprintf("unable to resolve runner: %s", err.Error()))
-			return ctrl.Result{}, err
+			logger.V(1).Error(err, "Failed to resolve runner")
+			return ctrl.Result{}, updateEventFailedStatus(err, "Failed to resolve runner")
 		}
 		event.Spec.RunnerName = runnerName
 		if err := r.Update(ctx, &event); err != nil {
-			logger.Error(err, "unable to update event")
-			return ctrl.Result{}, err
+			logger.V(1).Error(err, "Failed to update runner name")
+			return ctrl.Result{}, updateEventFailedStatus(err, "Failed to update runner name")
 		}
 		return ctrl.Result{}, nil
 	}
 
-	// Check if job is already created
+	// Check if the job is already created
+	// Job updates will be trigger this same reconciler via owner reference
 	var job batchv1.Job
 	if err := r.Get(ctx, client.ObjectKey{Namespace: event.Namespace, Name: event.Name}, &job); err != nil {
-		if event.Spec.DependsOn == "" {
+		if !errors.IsNotFound(err) {
+			logger.V(1).Error(err, "Failed to get job")
+			return ctrl.Result{}, updateEventFailedStatus(err, "Failed to get job")
+		}
+
+		// RuleOptions objects are used to store options associated with a rule
+		// Checking if the controller should maintain event dependency
+		ruleOptions, err := r.CompositeHelper.GetRuleOptions(
+			ctx,
+			event.Spec.RuleID,
+		)
+		if err != nil {
+			logger.V(2).Error(err, "Failed to resolve rule options")
+			return ctrl.Result{}, updateEventFailedStatus(err, "Failed to resolve rule options")
+		}
+
+		if !(*ruleOptions.MaintainExecutionOrder) || event.Spec.DependsOn == "" {
+			if *ruleOptions.MaintainExecutionOrder {
+				dependsOnEvent, err := r.CompositeHelper.FindEventDependsOn(ctx, &event)
+				if err != nil {
+					logger.V(1).Error(err, "Failed to find depends on")
+					return ctrl.Result{}, updateEventFailedStatus(err, "Failed to find depends on")
+				}
+				if dependsOnEvent != nil {
+					event.Spec.DependsOn = dependsOnEvent.Name
+					if err := r.Update(ctx, &event); err != nil {
+						logger.V(1).Error(err, "Failed to update depends on")
+						return ctrl.Result{}, updateEventFailedStatus(err, "Failed to update depends on")
+					}
+					return ctrl.Result{}, nil
+				}
+			}
+			// Shedule
 			runner, err := r.CompositeHelper.GetRunner(ctx, event.Spec.RunnerName)
 			if err != nil {
-				return ctrl.Result{}, err
+				logger.V(1).Error(err, "Failed to get runner")
+				return ctrl.Result{}, updateEventFailedStatus(err, "Failed to get runner")
 			}
+			// TODO: Move this under job helper : Prepare Job
 			createJob := batchv1.Job{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      event.Name,
@@ -114,6 +156,7 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 					Labels: map[string]string{
 						"eventsrunner.io/resourceId": event.Spec.ResourceID,
 						"eventsrunner.io/eventType":  string(event.Spec.EventType),
+						r.ControllerLabelKey:         r.ControllerLabelValue,
 					},
 				},
 				Spec: batchv1.JobSpec{
@@ -121,20 +164,32 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 				},
 			}
 			if err := controllerutil.SetControllerReference(&event, &createJob, r.Scheme); err != nil {
-				logger.Error(err, "unable to set controller reference")
-				return ctrl.Result{}, err
+				logger.Error(err, "Unable to set controller reference")
+				return ctrl.Result{}, updateEventFailedStatus(err, "Failed to set controller reference")
 			}
 			if err := r.Create(ctx, &createJob); err != nil {
-				logger.Error(err, "unable to create job")
-				return ctrl.Result{}, err
+				logger.Error(err, "Unable to create job")
+				return ctrl.Result{}, updateEventFailedStatus(err, "Failed to create job")
 			}
 		} else {
+			logger.V(2).Info(fmt.Sprintf("Event is depending on %s", event.Spec.DependsOn))
 			return ctrl.Result{}, nil
 		}
 	} else {
-		fmt.Println("Job already created", job.Name, job.Status.Succeeded)
-		logger.V(1).Info("Job already created")
-		return ctrl.Result{}, nil
+		// If the job is already sheduled check if it has succeeded or failed
+		switch r.CompositeHelper.GetJobStatus(job) {
+		case batchv1.JobComplete:
+			// TODO: Check if any events depends on this job and set it to empty
+			// TODO: Only delete if outside keep success limit
+			return ctrl.Result{}, r.Delete(ctx, &event)
+		case batchv1.JobFailed:
+			// TODO: Delete event if outside keep failed limit
+			return ctrl.Result{}, updateEventFailedStatus(nil, "Job failed to execute. Check job logs or messages")
+		case batchv1.JobSuspended:
+			// Ideally controller managed Job should never reach this state
+			// Delete if reached?
+			return ctrl.Result{}, r.Delete(ctx, &event)
+		}
 	}
 	return ctrl.Result{}, nil
 }

@@ -8,6 +8,7 @@ import (
 	logr "github.com/go-logr/logr"
 	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/controller/api/v1alpha1"
 	"github.com/luqmanMohammed/eventsrunner/controller/internal/index"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -71,11 +72,26 @@ func (eh eventsHelper) FindEventDependsOn(ctx context.Context, event *eventsrunn
 	return &destEvents[(len(destEvents) - 1):][0], nil
 }
 
+// StillDependent returns true if the event is still dependent on other events.
+func (eh eventsHelper) StillDependent(ctx context.Context, eventName string) (bool, error) {
+	if err := eh.client.Get(ctx, client.ObjectKey{Name: eventName}, &eventsrunneriov1alpha1.Event{}); err != nil {
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // UpdateEventStatus updates the status of the event.
-func (eh eventsHelper) UpdateEventStatus(ctx context.Context, event *eventsrunneriov1alpha1.Event, state eventsrunneriov1alpha1.EventState, message string) {
+func (eh eventsHelper) UpdateEventStatus(ctx context.Context, event *eventsrunneriov1alpha1.Event, state eventsrunneriov1alpha1.EventState, message string) error {
+	if event.Status.State == state && event.Status.Message == message {
+		return nil
+	}
 	event.Status.State = state
 	event.Status.Message = message
 	if err := eh.client.Update(ctx, event); err != nil {
-		eh.helperLog.V(1).Error(err, "failed to update event status")
+		return err
 	}
+	return nil
 }
