@@ -34,9 +34,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/controller/api/v1alpha1"
 	"github.com/luqmanMohammed/eventsrunner/controller/internal/helpers"
@@ -48,11 +46,16 @@ import (
 // EventReconciler reconciles a Event object
 type EventReconciler struct {
 	client.Client
-	Scheme               *runtime.Scheme
-	CompositeHelper      helpers.CompositeHelper
-	ControllerNamespace  string
-	ControllerLabelKey   string
-	ControllerLabelValue string
+	Scheme          *runtime.Scheme
+	CompositeHelper helpers.CompositeHelper
+}
+
+func (r *EventReconciler) updateFailedEvent(ctx context.Context, logger logr.Logger, event *eventsrunneriov1alpha1.Event, message string) {
+	event.Status.State = eventsrunneriov1alpha1.EventStateFailed
+	event.Status.Message = message
+	if err := r.Status().Update(ctx, event); err != nil {
+		logger.Error(err, "unable to update event status")
+	}
 }
 
 //+kubebuilder:rbac:groups=eventsrunner.io,resources=events,verbs=get;list;watch;create;update;patch;delete
