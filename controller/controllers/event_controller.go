@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -41,6 +42,8 @@ import (
 	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/controller/api/v1alpha1"
 	"github.com/luqmanMohammed/eventsrunner/controller/internal/helpers"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // EventReconciler reconciles a Event object
@@ -65,8 +68,8 @@ type EventReconciler struct {
 func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
 	// TODO: Configure retry mechanisum for failed states if required
-
 	logger := log.FromContext(ctx)
+
 	// Get the Event object from the request.
 	// If the Event object does not exist, assume that is was deleted and ignore.
 	var event eventsrunneriov1alpha1.Event
@@ -78,27 +81,26 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
+	updateEventFailedStatus := func(err error, msg string) error {
+		return r.CompositeHelper.UpdateEventStatus(
+			ctx,
+			&event,
+			eventsrunneriov1alpha1.EventStateFailed,
+			fmt.Sprintf("ERROR: %v : %s", err, msg),
+		)
+	}
+
 	// Check if runner name is set, if not, resolve runner and set it
 	if event.Spec.RunnerName == "" {
 		runnerName, err := r.CompositeHelper.ResolveRunner(ctx, &event)
 		if err != nil {
 			logger.V(1).Error(err, "Failed to resolve runner")
-			return ctrl.Result{}, r.CompositeHelper.UpdateEventStatus(
-				ctx,
-				&event,
-				eventsrunneriov1alpha1.EventStateFailed,
-				fmt.Sprintf("ERROR %v : Failed to resolve runner", err),
-			)
+			return ctrl.Result{}, updateEventFailedStatus(err, "Failed to resolve runner")
 		}
 		event.Spec.RunnerName = runnerName
 		if err := r.Update(ctx, &event); err != nil {
 			logger.V(1).Error(err, "Failed to update runner name")
-			return ctrl.Result{}, r.CompositeHelper.UpdateEventStatus(
-				ctx,
-				&event,
-				eventsrunneriov1alpha1.EventStateFailed,
-				fmt.Sprintf("ERROR %v : Failed to update runner name", err),
-			)
+			return ctrl.Result{}, updateEventFailedStatus(err, "Failed to update runner name")
 		}
 		return ctrl.Result{}, nil
 	}
@@ -155,7 +157,49 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 				}
 			}
 			// Shedule
-			
+			runner, err := r.CompositeHelper.GetRunner(ctx, event.Spec.RunnerName)
+			if err != nil {
+				logger.V(1).Error(err, "Failed to get runner")
+				return ctrl.Result{}, r.CompositeHelper.UpdateEventStatus(
+					ctx,
+					&event,
+					eventsrunneriov1alpha1.EventStateFailed,
+					fmt.Sprintf("ERROR %v : Failed to get runner", err),
+				)
+			}
+			// TODO: Move this under job helper : Prepare Job
+			createJob := batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      event.Name,
+					Namespace: event.Namespace,
+					Labels: map[string]string{
+						"eventsrunner.io/resourceId": event.Spec.ResourceID,
+						"eventsrunner.io/eventType":  string(event.Spec.EventType),
+						r.ControllerLabelKey:         r.ControllerLabelValue,
+					},
+				},
+				Spec: batchv1.JobSpec{
+					Template: corev1.PodTemplateSpec(runner.Spec),
+				},
+			}
+			if err := controllerutil.SetControllerReference(&event, &createJob, r.Scheme); err != nil {
+				logger.Error(err, "Unable to set controller reference")
+				return ctrl.Result{}, r.CompositeHelper.UpdateEventStatus(
+					ctx,
+					&event,
+					eventsrunneriov1alpha1.EventStateFailed,
+					fmt.Sprintf("ERROR %v : Unable to set controller reference", err),
+				)
+			}
+			if err := r.Create(ctx, &createJob); err != nil {
+				logger.Error(err, "Unable to create job")
+				return ctrl.Result{}, r.CompositeHelper.UpdateEventStatus(
+					ctx,
+					&event,
+					eventsrunneriov1alpha1.EventStateFailed,
+					fmt.Sprintf("ERROR %v : Unable to create job", err),
+				)
+			}
 		} else {
 			logger.V(2).Info(fmt.Sprintf("Event is depending on %s", event.Spec.DependsOn))
 			return ctrl.Result{}, nil
