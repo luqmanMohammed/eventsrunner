@@ -129,6 +129,32 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 
 		if !(*ruleOptions.MaintainExecutionOrder) || event.Spec.DependsOn == "" {
+			if *ruleOptions.MaintainExecutionOrder {
+				dependsOnEvent, err := r.CompositeHelper.FindEventDependsOn(ctx, &event)
+				if err != nil {
+					logger.V(1).Error(err, "Failed to find depends on")
+					return ctrl.Result{}, r.CompositeHelper.UpdateEventStatus(
+						ctx,
+						&event,
+						eventsrunneriov1alpha1.EventStateFailed,
+						fmt.Sprintf("ERROR %v : Failed to find depends on", err),
+					)
+				}
+				if dependsOnEvent != nil {
+					event.Spec.DependsOn = dependsOnEvent.Name
+					if err := r.Update(ctx, &event); err != nil {
+						logger.V(1).Error(err, "Failed to update depends on")
+						return ctrl.Result{}, r.CompositeHelper.UpdateEventStatus(
+							ctx,
+							&event,
+							eventsrunneriov1alpha1.EventStateFailed,
+							fmt.Sprintf("ERROR %v : Failed to update depends on", err),
+						)
+					}
+					return ctrl.Result{}, nil
+				}
+			}
+			// Shedule
 			
 		} else {
 			logger.V(2).Info(fmt.Sprintf("Event is depending on %s", event.Spec.DependsOn))
