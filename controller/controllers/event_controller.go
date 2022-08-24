@@ -111,12 +111,7 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if err := r.Get(ctx, client.ObjectKey{Namespace: event.Namespace, Name: event.Name}, &job); err != nil {
 		if !errors.IsNotFound(err) {
 			logger.V(1).Error(err, "Failed to get job")
-			return ctrl.Result{}, r.CompositeHelper.UpdateEventStatus(
-				ctx,
-				&event,
-				eventsrunneriov1alpha1.EventStateFailed,
-				fmt.Sprintf("ERROR %v : Failed to get job", err),
-			)
+			return ctrl.Result{}, updateEventFailedStatus(err, "Failed to get job")
 		}
 
 		// RuleOptions objects are used to store options associated with a rule
@@ -127,7 +122,7 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		)
 		if err != nil {
 			logger.V(2).Error(err, "Failed to resolve rule options")
-			return ctrl.Result{}, err
+			return ctrl.Result{}, updateEventFailedStatus(err, "Failed to resolve rule options")
 		}
 
 		if !(*ruleOptions.MaintainExecutionOrder) || event.Spec.DependsOn == "" {
@@ -135,23 +130,13 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 				dependsOnEvent, err := r.CompositeHelper.FindEventDependsOn(ctx, &event)
 				if err != nil {
 					logger.V(1).Error(err, "Failed to find depends on")
-					return ctrl.Result{}, r.CompositeHelper.UpdateEventStatus(
-						ctx,
-						&event,
-						eventsrunneriov1alpha1.EventStateFailed,
-						fmt.Sprintf("ERROR %v : Failed to find depends on", err),
-					)
+					return ctrl.Result{}, updateEventFailedStatus(err, "Failed to find depends on")
 				}
 				if dependsOnEvent != nil {
 					event.Spec.DependsOn = dependsOnEvent.Name
 					if err := r.Update(ctx, &event); err != nil {
 						logger.V(1).Error(err, "Failed to update depends on")
-						return ctrl.Result{}, r.CompositeHelper.UpdateEventStatus(
-							ctx,
-							&event,
-							eventsrunneriov1alpha1.EventStateFailed,
-							fmt.Sprintf("ERROR %v : Failed to update depends on", err),
-						)
+						return ctrl.Result{}, updateEventFailedStatus(err, "Failed to update depends on")
 					}
 					return ctrl.Result{}, nil
 				}
@@ -160,12 +145,7 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			runner, err := r.CompositeHelper.GetRunner(ctx, event.Spec.RunnerName)
 			if err != nil {
 				logger.V(1).Error(err, "Failed to get runner")
-				return ctrl.Result{}, r.CompositeHelper.UpdateEventStatus(
-					ctx,
-					&event,
-					eventsrunneriov1alpha1.EventStateFailed,
-					fmt.Sprintf("ERROR %v : Failed to get runner", err),
-				)
+				return ctrl.Result{}, updateEventFailedStatus(err, "Failed to get runner")
 			}
 			// TODO: Move this under job helper : Prepare Job
 			createJob := batchv1.Job{
@@ -184,21 +164,11 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			}
 			if err := controllerutil.SetControllerReference(&event, &createJob, r.Scheme); err != nil {
 				logger.Error(err, "Unable to set controller reference")
-				return ctrl.Result{}, r.CompositeHelper.UpdateEventStatus(
-					ctx,
-					&event,
-					eventsrunneriov1alpha1.EventStateFailed,
-					fmt.Sprintf("ERROR %v : Unable to set controller reference", err),
-				)
+				return ctrl.Result{}, updateEventFailedStatus(err, "Failed to set controller reference")
 			}
 			if err := r.Create(ctx, &createJob); err != nil {
 				logger.Error(err, "Unable to create job")
-				return ctrl.Result{}, r.CompositeHelper.UpdateEventStatus(
-					ctx,
-					&event,
-					eventsrunneriov1alpha1.EventStateFailed,
-					fmt.Sprintf("ERROR %v : Unable to create job", err),
-				)
+				return ctrl.Result{}, updateEventFailedStatus(err, "Failed to create job")
 			}
 		} else {
 			logger.V(2).Info(fmt.Sprintf("Event is depending on %s", event.Spec.DependsOn))
@@ -213,8 +183,7 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			return ctrl.Result{}, r.Delete(ctx, &event)
 		case batchv1.JobFailed:
 			// TODO: Delete event if outside keep failed limit
-			// TODO: Update status event
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, updateEventFailedStatus(nil, "Job failed to execute. Check job logs or messages")
 		case batchv1.JobSuspended:
 			// Ideally controller managed Job should never reach this state
 			// Delete if reached?
