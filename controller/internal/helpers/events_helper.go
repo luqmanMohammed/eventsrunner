@@ -84,10 +84,14 @@ func (eh eventsHelper) StillDependent(ctx context.Context, eventName string) (bo
 }
 
 // UpdateEventStatus updates the status of the event.
-func (eh eventsHelper) UpdateEventStatus(ctx context.Context, event *eventsrunneriov1alpha1.Event, state eventsrunneriov1alpha1.EventState, message string) {
+func (eh eventsHelper) UpdateEventStatus(ctx context.Context, event *eventsrunneriov1alpha1.Event, state eventsrunneriov1alpha1.EventState, message string) error {
+	if event.Status.State == state && event.Status.Message == message {
+		return nil
+	}
 	event.Status.State = state
 	event.Status.Message = message
 	if err := eh.client.Update(ctx, event); err != nil {
-		eh.helperLog.V(1).Error(err, "failed to update event status")
+		return err
 	}
+	return nil
 }

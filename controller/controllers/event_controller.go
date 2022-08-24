@@ -77,6 +77,7 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		logger.V(1).Error(err, "Failed to get error during reconciliation")
 		return ctrl.Result{}, nil
 	}
+
 	// Check if runner name is set, if not, resolve runner and set it
 	if event.Spec.RunnerName == "" {
 		runnerName, err := r.CompositeHelper.ResolveRunner(ctx, &event)
@@ -114,22 +115,29 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			logger.V(2).Error(err, "Failed to resolve rule options")
 			return ctrl.Result{}, err
 		}
+
 		if !(*ruleOptions.MaintainExecutionOrder) || event.Spec.DependsOn == "" {
 			// Shedule Job
 		} else {
-			if dependent, err := r.CompositeHelper.StillDependent(ctx, event.Spec.DependsOn); err != nil {
-				// TODO: Update status with error
-				logger.V(1).Error(err, "Failed to check if event is still depending on any other event")
-				return ctrl.Result{}, nil
-			} else if dependent {
-				logger.V(2).Info(fmt.Sprintf("Event is depends on %s", event.Spec.DependsOn))
-				return ctrl.Result{}, nil
-			}
-			// Shedule Job
+			logger.V(2).Info(fmt.Sprintf("Event is depends on %s", event.Spec.DependsOn))
+			return ctrl.Result{}, nil
 		}
 	} else {
 		// If the job is already sheduled check if it has succeeded or failed
-		return ctrl.Result{}, nil
+		switch r.CompositeHelper.GetJobStatus(job) {
+		case batchv1.JobComplete:
+			// TODO: Check if any events depends on this job and set it to empty
+			// TODO: Only delete if outside keep success limit
+			return ctrl.Result{}, r.Delete(ctx, &event)
+		case batchv1.JobFailed:
+			// TODO: Delete event if outside keep failed limit
+			// TODO: Update status event
+			return ctrl.Result{}, nil
+		case batchv1.JobSuspended:
+			// Ideally controller managed Job should never reach this state
+			// Delete if reached?
+			return ctrl.Result{}, r.Delete(ctx, &event)
+		}
 	}
 	return ctrl.Result{}, nil
 }
