@@ -82,15 +82,23 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if event.Spec.RunnerName == "" {
 		runnerName, err := r.CompositeHelper.ResolveRunner(ctx, &event)
 		if err != nil {
-			// TODO: Update status with error
 			logger.V(1).Error(err, "Failed to resolve runner")
-			return ctrl.Result{}, err
+			return ctrl.Result{}, r.CompositeHelper.UpdateEventStatus(
+				ctx,
+				&event,
+				eventsrunneriov1alpha1.EventStateFailed,
+				fmt.Sprintf("ERROR %v : Failed to resolve runner", err),
+			)
 		}
 		event.Spec.RunnerName = runnerName
 		if err := r.Update(ctx, &event); err != nil {
-			// TODO: Update status with error
 			logger.V(1).Error(err, "Failed to update runner name")
-			return ctrl.Result{}, err
+			return ctrl.Result{}, r.CompositeHelper.UpdateEventStatus(
+				ctx,
+				&event,
+				eventsrunneriov1alpha1.EventStateFailed,
+				fmt.Sprintf("ERROR %v : Failed to update runner name", err),
+			)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -100,9 +108,13 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	var job batchv1.Job
 	if err := r.Get(ctx, client.ObjectKey{Namespace: event.Namespace, Name: event.Name}, &job); err != nil {
 		if !errors.IsNotFound(err) {
-			// TODO: Update status with error
 			logger.V(1).Error(err, "Failed to get job")
-			return ctrl.Result{}, err
+			return ctrl.Result{}, r.CompositeHelper.UpdateEventStatus(
+				ctx,
+				&event,
+				eventsrunneriov1alpha1.EventStateFailed,
+				fmt.Sprintf("ERROR %v : Failed to get job", err),
+			)
 		}
 
 		// RuleOptions objects are used to store options associated with a rule
@@ -117,9 +129,9 @@ func (r *EventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 
 		if !(*ruleOptions.MaintainExecutionOrder) || event.Spec.DependsOn == "" {
-			// Shedule Job
+			
 		} else {
-			logger.V(2).Info(fmt.Sprintf("Event is depends on %s", event.Spec.DependsOn))
+			logger.V(2).Info(fmt.Sprintf("Event is depending on %s", event.Spec.DependsOn))
 			return ctrl.Result{}, nil
 		}
 	} else {
