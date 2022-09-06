@@ -34,8 +34,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/go-logr/logr"
 	eventsrunneriov1alpha1 "github.com/luqmanMohammed/eventsrunner/controller/api/v1alpha1"
 	"github.com/luqmanMohammed/eventsrunner/controller/internal/helpers"
 	batchv1 "k8s.io/api/batch/v1"
@@ -46,8 +49,11 @@ import (
 // EventReconciler reconciles a Event object
 type EventReconciler struct {
 	client.Client
-	Scheme          *runtime.Scheme
-	CompositeHelper helpers.CompositeHelper
+	Scheme               *runtime.Scheme
+	CompositeHelper      helpers.CompositeHelper
+	ControllerNamespace  string
+	ControllerLabelKey   string
+	ControllerLabelValue string
 }
 
 func (r *EventReconciler) updateFailedEvent(ctx context.Context, logger logr.Logger, event *eventsrunneriov1alpha1.Event, message string) {
